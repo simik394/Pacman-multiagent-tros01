@@ -278,7 +278,72 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # util.raiseNotDefined()
+        
+        # --- POMOCNÁ FUNKCE: REKURZIVNÍ MINIMAX ---
+        def minimax(agentIndex, depth, state):
+            # 1. Terminální stavy (Base Cases)
+            # Pokud hra skončila (výhra/prohra) nebo jsme dosáhli max hloubky
+            if state.isWin() or state.isLose() or depth == self.depth:
+                return self.evaluationFunction(state)
+
+            # 2. Příprava na další krok
+            # ===================================
+            # Zjistíme, kdo hraje příště
+            numAgents = state.getNumAgents()
+            nextAgent = (agentIndex + 1) % numAgents
+            
+            # Pokud je další na řadě zase Pacman (agent 0), znamená to, 
+            # že všichni duchové odehráli -> zvyšujeme hloubku.
+            # Poznámka: Zde 'depth' chápeme jako "current depth index".
+            nextDepth = depth + 1 if nextAgent == 0 else depth
+
+            # Získáme legální akce pro aktuálního agenta
+            legalMoves = state.getLegalActions(agentIndex)
+
+            # 3. Logika Agenta (MAX vs MIN)
+            # ===================================
+            if agentIndex == 0:
+                # --- PACMAN (MAXIMIZER) ---
+                max_score = -float('inf')
+                for action in legalMoves:
+                    successor = state.generateSuccessor(agentIndex, action)
+                    score = minimax(nextAgent, nextDepth, successor)
+                    if score > max_score:
+                        max_score = score
+                return max_score
+            else:
+                # --- DUCHOVÉ (MINIMIZERS) ---
+                min_score = float('inf')
+                for action in legalMoves:
+                    successor = state.generateSuccessor(agentIndex, action)
+                    score = minimax(nextAgent, nextDepth, successor)
+                    if score < min_score:
+                        min_score = score
+                return min_score
+
+        # ---- HLAVNÍ LOGIKA (ROOT CALL) ----
+        # ===================================
+        # V kořeni (Root) musíme vrátit AKCI, ne jen skóre.
+        # minimax() ale vrací jen skóre, proto je první vrstva spracována "manuálně".
+        
+        best_score = -float('inf')
+        best_action = None
+        
+        # Pacman (index 0) začíná
+        legalMoves = gameState.getLegalActions(0)
+        
+        for action in legalMoves:
+            successor = gameState.generateSuccessor(0, action)
+            # Volání rekurze pro prvního ducha (index 1), hloubka stále 0
+            score = minimax(1, 0, successor)
+            
+            # Maximizace v kořeni
+            if score > best_score:
+                best_score = score
+                best_action = action
+        
+        return best_action
 ###  QUESTION 3  ###
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
