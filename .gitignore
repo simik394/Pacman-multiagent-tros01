@@ -1,7 +1,9 @@
+/.luarc.json
+simulation_outputs/
+out/
+staging_temp/
+.quarto/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.DS_Store
-.idea/
-.vscode/
+__atomic_candidate.pdf
+_staging/

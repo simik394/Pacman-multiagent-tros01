@@ -1,0 +1,173 @@
+---
+title: "Project Management Analysis: 4IZ431 Semester Work Variants"
+format: html
+---
+
+# Executive Summary
+
+This document provides a Project Management (PM) analysis of the two semester work variants for **4IZ431 AI1**. The goal is to provide a decision-making framework based on Work Breakdown Structure (WBS), Critical Path Analysis (CPA), and time estimates.
+
+**Variants:**
+1.  **Programming**: Berkeley Pacman (search project assumed as baseline).
+2.  **Research**: Academic Paper (8-10 pages, PRISMA methodology).
+
+# Variant 1: Berkeley Pacman Options (Choose One)
+
+You have a choice of *at least* 4 standard projects. Here is the PM breakdown for each to help you select the most efficient one.
+
+## Option A: Project 1 - Search (Recommended for Speed)
+**Scope:** Implement BFS, DFS, UCS, A*, and Heuristics.
+**Structure:** 8 Questions.
+**Complexity:** Low-Medium (Algorithms are standard).
+
+### WBS (Search)
+1.  **Uninformed Search (Q1-Q3)** (4h)
+    *   Q1: DFS (Stack) - *Easy*
+    *   Q2: BFS (Queue) - *Easy*
+    *   Q3: UCS (PriorityQueue) - *Medium*
+2.  **Informed Search (Q4-Q6)** (5h)
+    *   Q4: A* (Heuristic integration) - *Medium*
+    *   Q5: Corners Problem (State Rep definition) - *Challenging*
+    *   Q6: Corners Heuristic - *Challenging*
+3.  **Advanced (Q7-Q8)** (3h)
+    *   Q7: Food Heuristic (Eating all dots) - *Hard (Bottleneck)*
+    *   Q8: Suboptimal Search - *Easy-Medium*
+
+**Estimate:** **~12-16 hours** (Most predictable).
+
+---
+
+## Option B: Project 2 - Multi-Agent (Game Trees)
+**Scope:** Minimax, Alpha-Beta Pruning, Expectimax.
+**Structure:** 5 Questions.
+**Complexity:** Medium (Recursion debugging can be tricky).
+
+### WBS (Multi-Agent)
+1.  **Reflex Agent (Q1)** (2h)
+    *   Improve default reflex agent evaluation function.
+2.  **Minimax & Pruning (Q2-Q3)** (6h)
+    *   Q2: Minimax (Recursive depth-limited search) - *Medium*
+    *   Q3: Alpha-Beta Pruning (Optimization) - *Hard (Off-by-one errors common)*
+3.  **Probabilistic Search (Q4)** (3h)
+    *   Q4: Expectimax (Handling random ghosts) - *Medium*
+4.  **Evaluation Function (Q5)** (3h)
+    *   Q5: Better Evaluation Function (Linear combination of features) - *Medium*
+
+**Estimate:** **~14-18 hours**. Good if you like recursive logic.
+
+---
+
+## Option C: Project 3 - Reinforcement Learning
+**Scope:** Q-Learning, Value Iteration, Epsilon-Greedy.
+**Structure:** 10 Questions (60% code / 40% analysis).
+**Complexity:** High (Conceptual understanding required).
+
+### WBS (RL)
+1.  **Value Iteration (Q1-Q5)** (6h)
+    *   Q1: Value Iteration Agent (Offline) - *Medium*
+    *   Q2-Q3: Gridworld Parameter tuning - *Easy*
+    *   Q4-Q5: Asynchronous VI & Prioritized Sweeping - *Medium*
+2.  **Q-Learning (Q6-Q10)** (8h)
+    *   Q6: Q-Learning Agent (Online) - *Medium*
+    *   Q7: Epsilon Greedy - *Easy*
+    *   Q8: Pacman Q-Learner - *Easy*
+    *   Q9: **Approximate Q-Learning** (Feature extraction) - *Hard*
+
+**Estimate:** **~16-20 hours**. Conceptually harder, but less code than Search.
+
+---
+
+## Option D: Project 4 - Ghostbusters (Tracking)
+**Scope:** Hidden Markov Models (HMM), Particle Filtering.
+**Scope:** Tracking invisible ghosts using noisy distance sensors.
+**Complexity:** High (Probabilistic code is hard to debug).
+
+### WBS (Tracking)
+1.  **Exact Inference (Q1-Q4)** (6h)
+    *   Q1-Q2: Observation step (Bayes rule updates).
+    *   Q3-Q4: Time Elapse step (Transition matrices).
+2.  **Approximate Inference (Q5-Q10)** (10h)
+    *   Q5-Q7: Particle Filter (Sampling, Resampling).
+    *   Q8-Q10: Joint Particle Filter (Multiple ghosts) - *Very Hard (Performance issues)*.
+
+**Estimate:** **~20-25 hours**. Riskiest option due to "Joint Particle Filter" complexity.
+
+---
+
+## Comparison Table
+
+| Metric | Search (P1) | Multi-Agent (P2) | RL (P3) | Tracking (P4) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Questions** | 8 | 5 | 10 | 10 |
+| **Code Volume** | High | Low | Medium | Medium |
+| **Debug Difficulty** | Low (Path visual) | Medium (Recursion) | Hard (Convergence) | Hard (Probabilities) |
+| **Est. Time** | **12-16h** | **14-18h** | **16-20h** | **20-25h** |
+| **Rec.** | **Winner** | Runner-up | Interest only | Avoid |
+
+# Variant 2: Research Paper (Academic + PRISMA)
+
+**Scope:** 8-10 pages, **Structure methodologies (PRISMA 2020)**. requires explicit flow diagram and exclusion documentation.
+
+## Work Breakdown Structure (WBS)
+
+1.  **Protocol & Search Strategy (PRISMA Phase 1)** (4h)
+    1.1 Define PICOS (Population, Intervention, Comparison, Outcome, Study design)
+    1.2 Design Search String (Boolean operators, wildcards) for 3+ DBs
+    1.3 **Register Protocol** (Optional but good practice - define inclusion/exclusion criteria *before* starting)
+
+2.  **Identification & Screening (PRISMA Phase 2)** (8h)
+    2.1 **Database Search:** Run queries, export BibTeX.
+    2.2 **Deduplication:** Clean duplicates (Zotero/Mendeley).
+    2.3 **Title/Abstract Screening:**
+        *   Create spreadsheet of all hits.
+        *   Mark "Include"/"Exclude" for every single item.
+    2.4 **Full-Text Retrieval:** Find PDFs for all "Include" candidates.
+
+3.  **Eligibility & Data Extraction (PRISMA Phase 3)** (10h)
+    3.1 **Full-Text Eligibility Check:**
+        *   Read full texts.
+        *   **Document REASONS for exclusion** (Required for PRISMA Flow Diagram).
+    3.2 **Data Extraction Matrix:**
+        *   Extract: Method, Dataset, Metrics per study.
+        *   Assess **Risk of Bias** (Quality assessment of each study).
+
+4.  **Synthesis & Reporting (PRISMA Phase 4)** (10h)
+    4.1 **PRISMA Flow Diagram:** Create visual chart (n identified -> n screened -> n included).
+    4.2 **Narrative Synthesis:** Group studies by themes/methods.
+    4.3 **Drafting:** Introduction, Methods (explicit search strategy), Results, Discussion.
+    4.4 **Checklist Compliance:** Verify against 27-item PRISMA checklist.
+
+## Critical Path & Estimation
+
+*   **Critical Path:** Strict linear dependency. Screening -> Eligibility -> Synthesis. Cannot write results without finalized "n" numbers.
+*   **Bottleneck:** **Phase 3 (Eligibility)**. Documenting specific exclusion reasons for 20-50 papers is tedious.
+*   **Risk:** Finding 0 relevant papers after 5 hours of screening (requires restarting Phase 1).
+
+| Phase | Optimistic (h) | Likely (h) | Pessimistic (h) |
+| :--- | :---: | :---: | :---: |
+| 1. Protocol | 2 | 4 | 6 |
+| 2. Identification | 4 | 8 | 12 |
+| 3. Eligibility | 6 | 10 | 16 |
+| 4. Synthesis/Writing | 8 | 10 | 20 |
+| **Total** | **20h** | **32h** | **54h** | -> **Revised: ~32-40h+**
+
+# PM Recommendation
+
+### **Efficiency Winner: Berkeley Pacman**
+*   **Time:** Likely **~18 hours** vs. ~35+ hours for a *proper* PRISMA review.
+*   **Control:** Pacman is deterministic. PRISMA depends on external literature availability.
+*   **Recommendation:** Unless you specifically need this literature review for your diploma thesis, **choose Pacman**.
+
+# PM Recommendation
+
+### **Efficiency Winner: Berkeley Pacman**
+*   **Time:** Likely **~18 hours** vs. ~32 hours for the paper.
+*   **Risk:** Start-up cost (environment). Once Q1-Q3 work, the rest follows logic. Q7 is the only "hard" stop.
+*   **Benefit:** Hands-on understanding of A*. Instant feedback via Autograder (gamification).
+
+### **Depth Winner: Research Paper**
+*   **Time:** High variance. Writing 10 quality pages takes time.
+*   **Risk:** "Rabbit hole" effect during reading. Writer's block.
+*   **Benefit:** Deep domain knowledge. Reusable for thesis literature review.
+
+**Verdict:** If your goal is **time optimization**, choose **Variant 1 (Pacman)**. If you need **thesis preparation**, choose **Variant 2 (Paper)**.

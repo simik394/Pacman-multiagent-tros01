@@ -1,0 +1,127 @@
+# 4IZ431 AI Theory Sheet
+## 1. Search Algorithms
+### Breadth-First Search (BFS)
+### Depth-First Search (DFS)
+### Uniform Cost Search (UCS)
+### A* Search
+### Heuristics: Admissible vs. Consistent
+## 2. Game Theory / Multi-Agent
+### Minimax Algorithm
+### Alpha-Beta Pruning
+### Expectimax
+## 3. Reinforcement Learning
+### Q-Learning Update Formula
+### Value Iteration vs. Policy Iteration
+### Epsilon-greedy Exploration
+## 4. Key Concepts from Papers
+### BERT (from cv08 paper: Devlin et al.)
+### Deep RL (from cv10 paper: Mnih et al.)
+### Samuel's Checkers (from cv06 paper: A. L. Samuel)
+# Lekce 1: Úvod do Umělé Inteligence a Její Historie
+## 1. Co je Umělá Inteligence?
+### 1.1 Umělý Artefakt
+### 1.2 Definice Inteligence
+### 1.3 Umělá Inteligence (AI)
+## 2. Přístupy k Umělé Inteligenci
+## 3. Druhy Inteligence
+## 4. Silná vs. Slabá UI
+## 5. Vývojové Paradigmy UI
+## 6. Stručná Historie UI
+# Lekce 2: Vyhodnocování Inteligence Umělých Systémů
+## 1. Filozofické Dělení Umělé Inteligence
+## 2. Rané Úvahy: René Descartes
+## 3. Turingův Test: Imitační Hra
+### 3.1 Princip Imitační Hry
+### 3.2 Definice "Stroje"
+### 3.3 Námitky proti Možnosti Myslících Strojů
+## 4. Myšlenkový Experiment s Čínským Pokojem
+## 5. Moderní Přístup: Racionální Agenti
+# Lekce 3: Řešení Úloh ve Stavovém Prostoru
+## 1. Úvod do Řešení Úloh
+### 1.1 Abstraktní Reprezentace
+### 1.2 Stavový Prostor
+## 2. Formální Definice Problému
+## 3. Algoritmy Prohledávání
+### 3.1 Slepé (Neinformované) Algoritmy
+### 3.2 Informované (Heuristické) Algoritmy
+### 3.3 Náhodné Algoritmy
+## 4. General Problem Solver (GPS)
+# Lekce 4: Splňování Podmínek (Constraint Satisfaction Problems - CSP)
+## 1. Co je Úloha na Splňování Podmínek?
+### 1.1 Příklady CSP
+## 2. Způsoby Řešení CSP
+### 2.1 Matematické Metody (Operační výzkum)
+### 2.2 Booleovská Splnitelnost (SAT)
+### 2.3 Využití Stavového Prostoru
+#### Algoritmus Backtrackingu
+# Lekce 5: Teorie Her a Prohledávání v Konfliktních Situacích
+## 1. Matematická Teorie Her
+### 1.1 Formální Popis Hry
+### 1.2 Typy Her
+## 2. Hra jako Úloha Prohledávání
+## 3. Algoritmus Minimax
+## 4. Alfa-Beta Prořezávání (Alpha-Beta Pruning)
+# Lekce 6: Plánování a Rozvrhování
+## 1. Plánování vs. Rozvrhování
+### 1.1 Úloha Plánování (Planning)
+### 1.2 Úloha Rozvrhování (Scheduling)
+## 2. Jazyk pro Definici Plánování (PDDL)
+## 3. Přístupy k Plánování
+### 3.1 Plánování jako Prohledávání Stavového Prostoru
+#### a) Dopředné prohledávání (Progression Planning)
+#### b) Zpětné prohledávání (Regression Planning)
+### 3.2 Plánování jako Splňování Podmínek (CSP) nebo Booleovská Splnitelnost (SAT)
+### 3.3 Plánování v Prostoru Plánů (Partial-Order Planning)
+### 3.4 Plánovací Graf (Planning Graph)
+# Lekce 7: Strojové Učení
+## 1. Co je Učení?
+### 1.1 Metody Učení
+### 1.2 Zpětná Vazba v Procesu Učení
+## 2. Empirické Učení z Dat (Induktivní Učení)
+### 2.1 Přeučení (Overfitting) vs. Podučení (Underfitting)
+## 3. Paradigmy Učení
+### 3.1 Učení jako Prohledávání
+### 3.2 Učení jako Aproximace (Optimalizace)
+## 4. Neuronové Sítě
+## 5. Teoretické Koncepty Učení
+### 5.1 PAC Teorie (Probably Approximately Correct Learning)
+### 5.2 Teorém "No Free Lunch"
+### 5.3 Teorém Ošklivého Káčátka
+# Lekce 8: Použití Znalostí v Učení
+## 1. Klasifikace Znalostí
+### 1.1 Podle Formalizovatelnosti
+### 1.2 Podle Obsahu
+## 2. Požadavky na Znalosti
+## 3. Reprezentace Znalostí v AI
+### 3.1 Predikátová Logika
+### 3.2 Sémantické Sítě
+### 3.3 Rámce (Frames)
+### 3.4 Pravidla (Rules)
+### 3.5 Případy (Cases)
+## 4. Učení s Využitím Apriorních Znalostí
+# Lekce 9: Zpětnovazební Učení (Reinforcement Learning)
+## 1. Charakteristiky Zpětnovazebního Učení
+## 2. Typy Zpětnovazebního Učení
+## 3. Komponenty Učícího se Agenta
+## 4. Formulace Úlohy: Markovský Rozhodovací Proces (MDP)
+### 4.1 Definice MDP
+### 4.2 Cíl Agenta v MDP
+# Lekce 10: Počítačové Vidění
+## 1. Typické Úlohy Počítačového Vidění
+## 2. Základní Charakteristiky Digitálního Obrazu
+## 3. Detekce Hran
+### 3.1 Konvoluce
+## 4. Rosenblattův Perceptron
+## 5. Konvoluční Neuronová Síť (CNN)
+# Lekce 11: Agenti a Roboti
+## 1. Robotika
+### 1.1 Typy Robotů
+## 2. Autonomní Robot
+## 3. Prostředí Agenta
+## 4. Senzorický Subsystém
+## 5. Příklady Historických Robotů
+## 6. Typy Agentů
+### 6.1 Reaktivní Agent (Simple Reflex Agent)
+### 6.2 Deliberativní Agent (Model-based / Goal-based Agent)
+## 7. Subsumpční Architektura
+## 8. Celulární Automat (Cellular Automaton)

@@ -1,0 +1,233 @@
+---
+title: "Srovnani Evaluacnich Funkci"
+subtitle: "my_heuristic vs optimal_endgame vs perfect_endgame"
+author: "AI1 Projekt"
+date: today
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 10pt
+    geometry:
+      - margin=2cm
+    colorlinks: true
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    highlight-style: github
+execute:
+  eval: false
+  echo: true
+---
+
+\newpage
+
+# Prehled
+
+Tento dokument poskytuje **hloubkove srovnani** tri evaluacnich funkci pro koncovku 2v1 v anglicke dame.
+
+| Funkce | Pristup | Radky v heuristics.jl |
+|--------|---------|----------------------|
+| `my_heuristic` | Obecna hra | 27-149 |
+| `optimal_endgame_heuristic` | Hardcoded pozice | 272-422 |
+| `perfect_endgame_heuristic` | Obecne principy | 447-753 |
+
+::: {.callout-note}
+Vsechny ukázky kódu níže jsou **embedy** ze souboru `heuristics.jl`. 
+Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
+Používáme Quarto extension `include-code-files` s region markers.
+:::
+
+\newpage
+
+# Detailni dokumentace
+
+Pro podrobnosti viz samostatne dokumenty:
+
+- [myHer-val-func-docs.pdf](myHer-val-func-docs.pdf) - Vseobecna heuristika
+- [optimalHer-val-func-docs.pdf](optimalHer-val-func-docs.pdf) - Hardcoded endgame
+- [perfectHer-val-func-docs.pdf](perfectHer-val-func-docs.pdf) - Obecne principy
+
+\newpage
+
+# Srovnani: Material
+
+## my_heuristic
+
+```{.julia include="heuristics.jl" region="my_heuristic_material"}
+```
+
+**Charakteristika:** Kral = 3x pesec (300 vs 100).
+
+---
+
+## optimal_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="optimal_material"}
+```
+
+**Charakteristika:** Kral = 2.5x pesec (100 vs 40). Nizsi hodnoty.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_material"}
+```
+
+**Charakteristika:** Base score 200. Material je mene dulezity nez strategie.
+
+\newpage
+
+# Srovnani: 1v1 Ochrana
+
+## my_heuristic
+
+**ZADNA explicitni ochrana** - spoleha na materialovou vyhodu.
+
+---
+
+## optimal_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="optimal_1v1"}
+```
+
+**Charakteristika:** Soft penalta -2000.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_1v1"}
+```
+
+**Charakteristika:** HARD FORBIDDEN (-99999). Minimax nikdy nevybere cestu vedouci k 1v1.
+
+\newpage
+
+# Srovnani: Pozice Cerveneho
+
+## my_heuristic
+
+```{.julia include="heuristics.jl" region="my_heuristic_endgame"}
+```
+
+**Pristup:** Cerveny daleko od centra = dobre (simple distance).
+
+---
+
+## optimal_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="optimal_red_pos"}
+```
+
+**Pristup:** HARDCODED pozice - pole 6 = +800.
+
+**Problem:** Bonus je VZDY, bez ohledu na kontext.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_red_pos"}
+```
+
+**Pristup:** Obecny princip + kontextova zavislost (penalta I bonus).
+
+\newpage
+
+# Srovnani: Koordinace Kralu
+
+## my_heuristic
+
+(Viz sekce výše - `my_heuristic_endgame` zahrnuje i průměrnou vzdálenost).
+
+**Pristup:** Pouze prumerna vzdalenost k cervenemu.
+
+---
+
+## optimal_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="optimal_coordination"}
+```
+
+**Pristup:** Bonus za optimalni vzdalenost + squeeze.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_coordination"}
+```
+
+**Pristup:** Koordinace + ANCHOR vs OPERATOR rozliseni.
+
+\newpage
+
+# Srovnani: Pseudo-terminalni stavy
+
+## my_heuristic a optimal_endgame_heuristic
+
+**ZADNE** - nemaji koncept pseudo-terminalnich stavu.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_retreat"}
+```
+
+**Pristup:** Penalta za zbytecny ustup. Zamezuje prodluzovani hry.
+
+\newpage
+
+# Srovnani: Corner Control
+
+## optimal_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="optimal_corner_control"}
+```
+
+**Problem:** Vse tlaci bile do centra (target=2.0, 2.5) → crowding.
+
+---
+
+## perfect_endgame_heuristic
+
+```{.julia include="heuristics.jl" region="perfect_corner_control"}
+```
+
+**Pristup:** Kontextova zavislost - bonus se meni podle toho, kdo uz je u rohu.
+
+\newpage
+
+# Vysledky Simulace
+
+| Funkce | Depth 5 | Depth 6 |
+|--------|---------|---------|
+| my_heuristic | Remiza | Remiza |
+| optimal_endgame | Vyhra | Remiza |
+| perfect_endgame | **Vyhra** | **Vyhra** |
+
+## Vitezna sekvence (perfect_endgame)
+
+```
+  1. Bily: 14-9      ← Priblizeni
+  7. Bily: 5-1       ← KOTVA V ROHU
+  9. Bily: 14-18     ← OPERATOR DIAGONALNE
+ 15. Bily: 11x2      ← VYHRA
+```
+
+\newpage
+
+# Zaver
+
+| Aspekt | my_heuristic | optimal | perfect |
+|--------|--------------|---------|---------|
+| 1v1 ochrana | Zadna | Penalta | Forbidden |
+| Pozice R | Centrum | Hardcoded | Obecny princip |
+| Anchor/Operator | Ne | Ne | Ano |
+| Pseudo-terminal | Ne | Ne | Ano |
+| Depth robustnost | D5: Ne | D5: Ano, D6: Ne | D5+D6: Ano |
+
+**Doporuceni:** Pro produkci pouzit `perfect_endgame_heuristic`.

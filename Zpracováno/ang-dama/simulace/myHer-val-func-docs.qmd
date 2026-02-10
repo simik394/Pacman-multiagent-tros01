@@ -1,0 +1,113 @@
+---
+title: "My Heuristic Documentation"
+subtitle: "Anglická dáma - Základní heuristika"
+author: "AI1 Projekt"
+date: today
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 11pt
+    geometry:
+      - margin=2.5cm
+    colorlinks: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+execute:
+  eval: false
+  echo: true
+---
+
+\newpage
+
+# Uvod
+
+## Charakteristika
+
+`my_heuristic` je **zakladni heuristika** navrzena pro obecnou hru (nejen koncovku). Zameruje se na:
+
+- Materialovou vyhodu (agresivni hodnoceni krale)
+- Kontrolu stredu desky
+- Bezpecnost pescu na okrajich
+- Zakladni pozicni logiku pro krale
+
+> **Pristup:** Obecna evaluace stavu bez hluboke specializace na koncovkove scenare.
+
+## Silne stranky
+
+- Univerzalni puziti (opening, middlegame, endgame)
+- Zohlednuje bezpecnost pescu
+- Motivuje k obsazeni stredu
+
+## Slabe stranky
+
+- V koncovce 2v1 postrada specifickou strategii (crowding, netting)
+- Nema ochranu proti 1v1 vymene (coz vede k remize)
+- Nedokaze efektivne vytlacit soupere z rohu
+
+\newpage
+
+# Implementace
+
+::: {.callout-note}
+Vsechny ukázky kódu níže jsou **embedy** ze souboru `heuristics.jl`. 
+Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
+:::
+
+## 1. Material
+
+Hodnoty figur jsou nastaveny agresivneji nez v literature (Kral = 300 vs Pesec = 100).
+
+```{.julia include="heuristics.jl" region="my_heuristic_material"}
+```
+
+## 2. Kontrola stredu
+
+Bily ziskava bonus za drzeni stredovych sloupcu (3-6).
+
+```{.julia include="heuristics.jl" region="my_heuristic_pos_white"}
+```
+
+## 3. Okrajova bezpecnost
+
+Pesci na okrajich (sloupce 1 a 8) jsou bezpecnejsi (nelze je preskocit z jedne strany).
+
+```{.julia include="heuristics.jl" region="my_heuristic_edge"}
+```
+
+## 4. Dvojity roh
+
+Bonus za drzeni dvojiteho rohu.
+
+```{.julia include="heuristics.jl" region="my_heuristic_double_corner"}
+```
+
+## 5. Pozicni logika pro krale
+
+Kralove jsou motivovani byt na okrajich (bezpecí) nebo v rohu, pokud maji prevahu.
+
+```{.julia include="heuristics.jl" region="my_heuristic_pos_king"}
+```
+
+## 6. Endgame logika (Nahánění)
+
+V koncovce (kdy ma bily prevahu kralu) se aktivuje jednoducha logika priblizeni (zmenseni vzdalenosti).
+
+```{.julia include="heuristics.jl" region="my_heuristic_endgame"}
+```
+
+**Omezeni:** Tato logika pouze zmensuje prumernou vzdalenost, coz casto vede k tomu, ze bily kralove "sedi" na cervenem, ale nevytlaci ho z rohu (chybi "opposition" nebo "net" logika).
+
+\newpage
+
+# Zaver
+
+`my_heuristic` je solidni zaklad pro obecnou hru, ale pro reseni specifickych koncovek (jako 2v1 s kralem v rohu) je nedostatacna. Chybi ji:
+
+1. **Plan:** Nema koncept "kotvy" a "operatora".
+2. **Trap:** Nedokaze vytvorit past (squeeze).
+3. **Finish:** Nevi, jak vynutit preskok.
+
+Pro uspesne dohrani 2v1 koncovky je nutne pouzit specializovanou heuristiku (`perfect_endgame_heuristic`).

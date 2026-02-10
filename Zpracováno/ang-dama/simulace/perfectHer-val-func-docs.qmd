@@ -1,0 +1,479 @@
+---
+title: "Perfect Endgame Heuristic"
+subtitle: "Anglická dáma - Obecne principy s kontextovou zavislosti"
+author: "AI1 Projekt"
+date: today
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 11pt
+    geometry:
+      - margin=2.5cm
+    colorlinks: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+jupyter: julia-1.12
+execute:
+  eval: false
+  echo: true
+---
+
+\newpage
+
+# Uvod
+
+## Charakteristika
+
+`perfect_endgame_heuristic` je **obecna principialni** heuristika postavena na 7 strategickych principech:
+
+| # | Princip | Popis |
+|---|---------|-------|
+| 1 | Material | Zakladni hodnota figur a 1v1 ochrana |
+| 2 | Red Position | Viditelnost pozice cerveneho |
+| 3 | Coordination | Squeeze formace |
+| 4 | Retreat Penalty | Pseudo-terminalni stavy |
+| 5 | Net Formation | Diagonalni spread operatora |
+| 6 | Mobility | Omezeni tahu soupere |
+| 7 | Cornering | Tlak k okrajum |
+| 8 | Corner Control | Kontextove zavisle rizeni rohu |
+
+> **Pristup:** Zadne hardcoded pozice - pouze obecne principy.
+
+## Silne stranky
+
+- Obecna - funguje z libovolne startovni pozice
+- Kontextove zavisle - bonus se meni podle faze hry
+- Robustni vuci horizon effectu (depth 5 i 6)
+- Move ordering pro lepsí pruning
+
+## Klicova inovace
+
+1. **Anchor vs Operator** - rozliseni roli kralu
+2. **Pseudo-terminalni stavy** - penalta za zbytecny ustup
+3. **Move ordering** - serazeni tahu pred minimax
+
+\newpage
+
+# Implementace - Klicove sekce
+
+::: {.callout-note}
+Vsechny ukázky kódu níže jsou **embedy** ze souboru `heuristics.jl`. 
+Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
+:::
+
+## PRINCIP 1: Material a 1v1 ochrana
+
+```{.julia include="heuristics.jl" region="perfect_material"}
+```
+
+```{.julia include="heuristics.jl" region="perfect_1v1"}
+```
+
+> **Rozdil od Optimal:** `optimal` pouziva penaltu -2000, `perfect` pouziva hard forbidden -99999.
+
+## PRINCIP 2: Pozice cerveneho
+
+```{.julia include="heuristics.jl" region="perfect_red_pos"}
+```
+
+> **Klicovy rozdil:** Pozice cerveneho je primo viditelna v hodnote - penalta I bonus.
+
+## PRINCIP 3: Koordinovany utok (Squeeze)
+
+```{.julia include="heuristics.jl" region="perfect_coordination"}
+```
+
+\newpage
+
+## PRINCIP 4: Penalta za zbytecny ustup
+
+```{.julia include="heuristics.jl" region="perfect_retreat"}
+```
+
+> **Toto zamezuje hre na cas** - bily se nemuze utahovat do nekonecna.
+
+## PRINCIP 5: Diagonalni sitova formace (Net)
+
+Kracive logika - rozliseni **kotvy** a **operatora**:
+
+```{.julia include="heuristics.jl" region="perfect_net"}
+```
+
+> **Toto je klicova inovace** - jakmile kotva drzi roh, operator MUSI jit diagonalne (14→18), ne k rohu (14→10).
+
+\newpage
+
+## PRINCIP 6: Mobilita soupeře
+
+Čím méně tahů má červený, tím lépe. 0 tahů = výhra.
+
+```{.julia include="heuristics.jl" region="perfect_mobility"}
+```
+
+## PRINCIP 7: Cornering (Tlak k okrajům)
+
+Tlačení červeného k okrajům desky ("Kontrola hry").
+
+```{.julia include="heuristics.jl" region="perfect_cornering"}
+```
+
+## PRINCIP 8: Kontextove zavisle rizeni rohu
+
+```{.julia include="heuristics.jl" region="perfect_corner_control"}
+```
+
+> **Kontextova zavislost** - bonus za roh POUZE kdyz tam jeste nikdo neni.
+
+\newpage
+
+# Move Ordering
+
+Kricka optimalizace pro reseni horizon effectu:
+
+```{.julia include="testvaluefunc.jl" region="move_ordering"}
+```
+
+**Vyhody:**
+
+1. **Lepsi alpha-beta pruning** - nejlepsi tahy prvni
+2. **Tiebreaking** - pri rovnosti vyhrava vyssi okamzita heuristika
+
+\newpage
+
+# Validace
+
+```{julia}
+#| label: load-simulation-data
+#| eval: true
+#| echo: true
+#| output: asis
+
+# ── Nalezeni posledniho simulation runu ──────────────────────────────
+cur_doc_dir = pwd()  # Quarto nastavi CWD na adresar dokumentu
+sim_base_path = joinpath(cur_doc_dir, "out", "simulation_outputs")
+run_dirs = filter(d -> startswith(d, "run_"), readdir(sim_base_path))
+latest_run = sort(run_dirs)[end]
+active_run_path = joinpath(sim_base_path, latest_run)
+println("**Zdrojovy run:** `$latest_run`\n")
+
+# ── Parsovani pruběh_simulace.txt ────────────────────────────────────
+raw = read(joinpath(active_run_path, "pruběh_simulace.txt"), String)
+lines = split(raw, "\n")
+
+# Extrakce zadani
+for l in lines
+    m_white = match(r"Bílý: (\d+) krákov?.* na pozicích ([\d, ]+)", l)
+    m_red = match(r"Červený: (\d+) krákov?.* na pozici (\d+)", l)
+    m_depth = match(r"Hloubka prohledávání: (\d+)", l)
+    if m_white !== nothing
+        println("- **Bily:** $(m_white[1]) kralove na pozicich $(m_white[2])")
+    elseif m_red !== nothing
+        println("- **Cerveny:** $(m_red[1]) kral na pozici $(m_red[2])")
+    elseif m_depth !== nothing
+        println("- **Hloubka:** $(m_depth[1])")
+    end
+end
+
+# ── Extrakce dat jednotlivych tahu ───────────────────────────────────
+struct MoveData
+    num::Int
+    player::String  # "Bily" / "Cerveny"
+    role::String    # "MAX" / "MIN"
+    move::String
+    score::Float64
+    nodes::Int
+    position::String
+    eval_score::Int
+end
+
+global moves = MoveData[]
+move_counter = 0
+i = 1
+while i <= length(lines)
+    l = lines[i]
+    # Match "Tah X.Y: ... BÍLÝ (MAX)" nebo "ČERVENÝ (MIN)"
+    m_tah = match(r"Tah \d+\.\d+: .*(BÍLÝ|ČERVENÝ).*\((MAX|MIN)\)", l)
+    if m_tah !== nothing
+        move_counter += 1
+        player = m_tah[1] == "BÍLÝ" ? "Bily" : "Cerveny"
+        role = m_tah[2]
+        # Dalsi radky: tah, skore, uzly
+        m_move = match(r"Nejlepší tah: (.+)", lines[i+1])
+        m_score = match(r"Očekávané skóre: ([\d.-]+)", lines[i+2]) # Upraveno pro minus minus
+        m_nodes = match(r"Počet uzlů ve stromu: (\d+)", lines[i+3])
+        
+        if m_move !== nothing && m_score !== nothing && m_nodes !== nothing
+            # Hledame "Po tahu" blok
+            j = i + 4
+            pos_str = ""
+            eval_val = 0
+            while j <= length(lines)
+                m_pos = match(r"Pozice: (.+)", lines[j])
+                m_eval = match(r"Hodnocení: (-?\d+)", lines[j]) # Upraveno pro minus
+                if m_pos !== nothing
+                    pos_str = strip(m_pos[1])
+                end
+                if m_eval !== nothing
+                    eval_val = parse(Int, m_eval[1])
+                    break
+                end
+                if startswith(strip(lines[j]), "─")
+                    break
+                end
+                j += 1
+            end
+            push!(moves, MoveData(
+                move_counter, player, role,
+                strip(m_move[1]),
+                parse(Float64, m_score[1]),
+                parse(Int, m_nodes[1]),
+                pos_str, eval_val
+            ))
+            i = j + 1
+        else
+            i += 1
+        end
+    else
+        i += 1
+    end
+end
+
+# ── Detekce vysledku ─────────────────────────────────────────────────
+result_line = findfirst(l -> occursin("VYHRÁL", l), lines)
+global result_str = result_line !== nothing ? strip(lines[result_line]) : "Hra neskoncila"
+
+println("\n## Vysledky prohledavani — prehled po tazich\n")
+println("| # | Hrac | Tah | Skore | Uzlu | Pozice po tahu | Hodnoceni |")
+println("|--:|------|-----|------:|-----:|----------------|----------:|")
+for m in moves
+    score_str = m.score >= 10000 ? "**$(Int(m.score))**" : string(Int(m.score))
+    println("| $(m.num) | $(m.player) ($(m.role)) | $(m.move) | $score_str | $(m.nodes) | $(m.position) | $(m.eval_score) |")
+end
+
+println("\n> $result_str")
+```
+
+\newpage
+
+## Prohledavaci stromy — prvnich 4 tahu
+
+```{julia}
+#| label: render-trees
+#| eval: true
+#| echo: true
+#| output: asis
+
+# ── Renderovani prohledavacich stromu do grafu ───────────────────────
+include(joinpath(cur_doc_dir, "render_search_trees.jl"))
+
+# Vystupni adresar pro renderovane stromy
+tree_out_dir = joinpath(cur_doc_dir, "out", "rendered_trees")
+mkpath(tree_out_dir)
+
+# Mapovani tahu na adresare simulace
+tah_specs = [
+    (title="Tah 1: Bily 14-9 (MAX)",     subdir="tah_1_bily",    fname="tah1_bily"),
+    (title="Tah 2: Cerveny 1-5 (MIN)",    subdir="tah_1_cerveny", fname="tah2_cerveny"),
+    (title="Tah 3: Bily 10-14 (MAX)",     subdir="tah_2_bily",    fname="tah3_bily"),
+    (title="Tah 4: Cerveny 5-1 (MIN)",    subdir="tah_2_cerveny", fname="tah4_cerveny"),
+]
+
+for spec in tah_specs
+    out_base = joinpath(tree_out_dir, spec.fname)
+    
+    # Použijeme split render pro lepší čitelnost
+    pdf_files = render_split_tree(active_run_path, spec.subdir, spec.title, out_base; max_depth=3)
+    
+    if !isempty(pdf_files)
+        println("### $(spec.title)\n")
+        
+        # První je vždy overview
+        ov_rel = relpath(pdf_files[1], cur_doc_dir)
+        println("#### Přehled alternativ\n")
+        println("![$(spec.title) - Přehled]($ov_rel){width=100%}\n")
+        
+        # Ostatní jsou větve
+        if length(pdf_files) > 1
+            println("#### Detailní pohled na větve\n")
+            for (i, branch_pdf) in enumerate(pdf_files[2:end])
+                branch_rel = relpath(branch_pdf, cur_doc_dir)
+                println("![$(spec.title) - Větev $i]($branch_rel){width=100%}\n")
+            end
+        end
+        println("\\newpage\n")
+    end
+end
+```
+
+\newpage
+
+# Validace ořezávání (Brute Force vs Alpha-Beta)
+
+V této sekci ověříme správnost Alpha-Beta ořezávání porovnáním s čistým Minimax algoritmem (hrubá síla) na vybrané herní situaci. Oba algoritmy musí najít **stejnou hodnotu skóre** a **stejný nejlepší tah**. Rozdíl bude pouze v počtu prozkoumaných uzlů.
+
+```{julia}
+#| label: brute-force-validation
+#| eval: true
+#| echo: true
+#| output: asis
+
+# Načtení herní logiky (pokud ještě není)
+# Předpokládáme, že jsme v adresáři 'Zpracováno/ang-dama-value-func'
+include(joinpath(cur_doc_dir, "boards.jl"))
+include(joinpath(cur_doc_dir, "heuristics.jl"))
+# testvaluefunc obsahuje minimax_with_tree, musíme ho načíst
+# Pozor: testvaluefunc může spouštět věci v main scope, ale je to struct/funkce def
+include(joinpath(cur_doc_dir, "testvaluefunc.jl"))
+
+# Definice Minimaxu BEZ ořezávání (pro srovnání)
+function minimax_no_pruning(board::Matrix{Int}, depth::Int, is_maximizing::Bool)
+    if depth == 0
+        return Float64(perfect_endgame_heuristic(board)), nothing, 1
+    end
+
+    player = is_maximizing ? 1 : -1
+    moves = get_legal_moves(board, player)
+
+    if isempty(moves)
+        return is_maximizing ? -99999.0 : 99999.0, nothing, 1
+    end
+
+    best_move = moves[1]
+    total_nodes = 1
+    
+    if is_maximizing
+        max_eval = -Inf
+        for move in moves
+            new_board = make_move(board, move)
+            score, _, nodes = minimax_no_pruning(new_board, depth - 1, false)
+            total_nodes += nodes
+            if score > max_eval
+                max_eval = score
+                best_move = move
+            end
+        end
+        return max_eval, best_move, total_nodes
+    else
+        min_eval = Inf
+        for move in moves
+            new_board = make_move(board, move)
+            score, _, nodes = minimax_no_pruning(new_board, depth - 1, true)
+            total_nodes += nodes
+            if score < min_eval
+                min_eval = score
+                best_move = move
+            end
+        end
+        return min_eval, best_move, total_nodes
+    end
+end
+
+# Wrapper pro Alpha-Beta (aby vracel počet uzlů podobně)
+# minimax_with_tree vrací (score, best_move, node_id). 
+# Počet uzlů zjistíme z globální proměnné tree_nodes, pokud resetujeme strom.
+function run_alphabeta_stats(board, depth, is_max)
+    global tree_nodes = TreeNode[] # Reset globální struktury z testvaluefunc.jl
+    global tree_enabled = true
+    
+    score, move, _ = minimax_with_tree(board, depth, -Inf, Inf, is_max, 0, "ROOT")
+    
+    return score, move, length(tree_nodes)
+end
+
+# ── Testovací scénář ─────────────────────────────────────────────────
+# Nastavíme zajímavou pozici (např. 6 vs 2, kde je dost tahů)
+# Bílý na 14, 18. Červený na 5 (král).
+# Bílý na tahu.
+test_board = zeros(Int, 8, 8)
+test_board[4, 2] = 2  # Bílý král na 14
+test_board[5, 2] = 2  # Bílý král na 18
+test_board[2, 3] = -2 # Červený král na 7
+test_board[3, 8] = 2  # Další bílý
+test_depth = 4       # Hloubka 4 (dostatečná pro rozdíl, ale rychlá)
+
+# ── Spuštění algoritmů ───────────────────────────────────────────────
+val_bf, move_bf, nodes_bf = minimax_no_pruning(test_board, test_depth, true)
+val_ab, move_ab, nodes_ab = run_alphabeta_stats(test_board, test_depth, true)
+
+# ── Výpis výsledků ───────────────────────────────────────────────────
+println("| Algoritmus | Skore | Nejlepsi tah | Pocet uzlu | Uspora |")
+println("|------------|------:|-------------:|-----------:|-------:|")
+
+move_bf_str = move_bf !== nothing ? format_move(move_bf) : "None"
+move_ab_str = move_ab !== nothing ? format_move(move_ab) : "None"
+
+# Výpočet úspory
+savings = round(100 * (1 - nodes_ab/nodes_bf), digits=1)
+
+println("| Brute Force (Minimax) | $val_bf | $move_bf_str | $nodes_bf | 0% |")
+println("| Alpha-Beta Pruning | $val_ab | $move_ab_str | $nodes_ab | **$savings%** |")
+
+if val_bf == val_ab && move_bf_str == move_ab_str
+    println("\n> **VERDIKT:** ✅ Algoritmy vrátily shodný výsledek. Alpha-Beta ořezávání je korektní.")
+else
+    println("\n> **VERDIKT:** ❌ Výsledky se liší! Alpha-Beta implementace může být chybná.")
+end
+```
+
+### Vysvětlivky k reportu
+
+- **NO MOVES**: Pokud se ve stromu objeví uzel označený jako `[NO MOVES]`, znamená to, že hráč na tahu nemá k dispozici žádný legální tah. V dámě to znamená okamžitou prohru.
+    - Pokud nemůže táhnout MAX (Bílý), skóre je $-\infty$.
+    - Pokud nemůže táhnout MIN (Červený), skóre je $+\infty$ (z pohledu MAX hráče je to výhra).
+- **OŘEZÁNO (Cut-off)**: Větve označené šedě a přerušovanou čarou nebyly prohledány, protože algoritmus matematicky dokázal, že nemohou ovlivnit výsledek (buď jsou pro soupeře příliš dobré, takže je hráč nevybere, nebo naopak).
+
+\newpage
+
+## Souhrnna statistika
+
+```{julia}
+#| label: summary-stats
+#| eval: true
+#| echo: true
+#| output: asis
+
+# ── Vypocet statistik z nactenych dat ────────────────────────────────
+white_moves = filter(m -> m.player == "Bily", moves)
+red_moves = filter(m -> m.player == "Cerveny", moves)
+
+avg_white = length(white_moves) > 0 ? round(Int, sum(m.nodes for m in white_moves) / length(white_moves)) : 0
+avg_red = length(red_moves) > 0 ? round(Int, sum(m.nodes for m in red_moves) / length(red_moves)) : 0
+
+# Zlomovy tah: kde skore poprve >= 10000
+breakthrough = findfirst(m -> m.score >= 10000, moves)
+bt_str = breakthrough !== nothing ? "#$(moves[breakthrough].num) ($(moves[breakthrough].move), skore $(Int(moves[breakthrough].score)))" : "nenalezen"
+
+# Terminalni nalezeni: kde skore >= 99999
+terminal = findfirst(m -> m.score >= 99999, moves)
+term_str = terminal !== nothing ? "od tahu #$(moves[terminal].num)" : "nenalezeno"
+
+println("| Metrika | Hodnota |")
+println("|---------|---------|")
+println("| **Celkovy pocet tahu** | $(length(moves)) |")
+println("| **Prumerne uzly/tah (bily)** | $avg_white |")
+println("| **Prumerne uzly/tah (cerveny)** | $avg_red |")
+println("| **Zlomovy tah** | $bt_str |")
+println("| **Terminalni nalezeni** | $term_str |")
+
+println("\n> **Efektivita orezavani:** Cerveny ma mensi stromy (prumerne $avg_red vs $avg_white uzlu) — bily ma vetsi volnost a vice alternativ.")
+```
+
+\newpage
+
+# Zaver
+
+`perfect_endgame_heuristic` predstavuje **druhou iteraci** heuristiky, ktera resi vsechny problemy `optimal_endgame_heuristic`:
+
+| Problem | Optimal | Perfect |
+|---------|---------|---------|
+| Hardcoded pozice | Ano | Ne |
+| Horizon effect | Nere | Reseno |
+| Crowding | Muze nastat | Penalizovano |
+| Kontextova zavislost | Chybi | Implementovano |
+| 1v1 ochrana | Penalta | Forbidden |
+| Move ordering | Chybi | Implementovano |
+
+Pro produkcni nasazeni je `perfect_endgame_heuristic` doporucena volba.

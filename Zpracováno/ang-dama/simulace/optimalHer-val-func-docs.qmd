@@ -1,0 +1,147 @@
+---
+title: "Optimal Endgame Heuristic"
+subtitle: "Anglická dáma - Hardcoded pozicni strategie"
+author: "AI1 Projekt"
+date: today
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 11pt
+    geometry:
+      - margin=2.5cm
+    colorlinks: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    highlight-style: github
+execute:
+  eval: false
+  echo: true
+---
+
+\newpage
+
+# Uvod
+
+## Charakteristika
+
+`optimal_endgame_heuristic` je **pozicne orientovana** heuristika, ktera kombinuje:
+
+- Materialovou bilanci
+- Ochranu pred 1v1 situaci (exchange penalty)
+- Hardcoded bonusy pro specificke pozice
+- Koordinaci bílych kralu
+
+> **Pristup:** Semi-hardcoded - pouziva konkretni cisla poli (1, 5, 6, 9...) pro urceni bonusu.
+
+## Silne stranky
+
+- Jednoducha implementace
+- Rychly vypocet
+- Dobre funguje pro konkretni startovni pozici
+
+## Slabe stranky
+
+- Neni obecna - hardcoded pozice nemusi fungovat z jine startovni pozice
+- Chybi kontextova zavislost (bonus vzdy, bez ohledu na aktualni fazi)
+- Neresí horizon effect
+
+\newpage
+
+# Implementace
+
+::: {.callout-note}
+Vsechny ukázky kódu níže jsou **embedy** ze souboru `heuristics.jl`. 
+Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
+:::
+
+## Konstanty
+
+```julia
+const_KING = 100.0
+const_PAWN = 40.0
+const_EXCHANGE_PENALTY = 2000.0
+const_WIN = 10000.0
+```
+
+## Materiál
+
+```{.julia include="heuristics.jl" region="optimal_material"}
+```
+
+## Exchange Penalty (1v1 ochrana)
+
+```{.julia include="heuristics.jl" region="optimal_1v1"}
+```
+
+> **Poznamka:** Toto neni hard forbidden jako v `perfect_endgame_heuristic`, pouze penalta.
+
+## Double Corner Strategy - Hardcoded pozice
+
+```{.julia include="heuristics.jl" region="optimal_red_pos"}
+```
+
+**Problem:** Toto nereflektuje, JAK se cerveny dostal do dane pozice. Bonus +800 za pole 6 je stejny v tahu 1 jako v tahu 10.
+
+## Pozice bilych kralu - Target Center
+
+```{.julia include="heuristics.jl" region="optimal_corner_control"}
+```
+
+**Problem:** Vse tlaci bile do centra (target=2.0, 2.5), coz muze vest ke crowdingu.
+
+## Koordinace kralu
+
+```{.julia include="heuristics.jl" region="optimal_coordination"}
+```
+
+## Mobilita soupere
+
+```{.julia include="heuristics.jl" region="optimal_mobility"}
+```
+
+## Utok - prime sousedstvi
+
+```{.julia include="heuristics.jl" region="optimal_attack"}
+```
+
+\newpage
+
+# Srovnani s Perfect Endgame Heuristic
+
+| Aspekt | Optimal | Perfect |
+|--------|---------|---------|
+| Pristup | Hardcoded pozice | Obecne principy |
+| 1v1 ochrana | Penalta (-2000) | Forbidden (-99999) |
+| Corner control | Vzdy bonus | Kontextove zavisle |
+| Operator logic | Chybi | Diagonal net formation |
+| Retreat penalty | Chybi | Pseudo-terminal |
+| Move ordering | Chybi | Implementovano |
+| Depth robustnost | Pouze depth 5 | Depth 5 i 6 |
+
+## Priklady problemu
+
+**Problem 1: Target center crowding**
+```
+Optimal: Oba W jdou do centra (2.0, 2.5) → crowding
+Perfect: Kontva jde do rohu, operator na diagonalu
+```
+
+**Problem 2: Chybejici kontextova zavislost**
+```
+Optimal: Pole 6 = +150 vzdy
+Perfect: Pole 6 bonus pouze kdyz zadny W neni blizko rohu
+```
+
+\newpage
+
+# Zaver
+
+`optimal_endgame_heuristic` predstavuje **prvni iteraci** heuristiky pro 2v1 koncovku. Funguje dobre pro specifickou startovni pozici (W@10,14 R@1), ale ma zasadni omezeni:
+
+1. Hardcoded pozice nejsou obecne
+2. Chybi fázová logika (anchor vs operator)
+3. Neni robustni vuci horizon effectu
+
+Pro produkcni nasazeni je doporuceno pouzit `perfect_endgame_heuristic`, ktera tyto problemy resi.

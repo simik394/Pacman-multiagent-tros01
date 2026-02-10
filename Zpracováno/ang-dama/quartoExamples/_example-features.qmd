@@ -1,0 +1,422 @@
+---
+title: "Quarto Feature Showcase"
+author: "Feature Test Document"
+date: today
+format:
+  pdf:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    colorlinks: true
+    linkcolor: blue
+    fig-pos: "H"
+    geometry:
+      - margin=25mm
+    fontsize: 11pt
+    linestretch: 1.15
+    highlight-style: github
+    code-line-numbers: true
+---
+
+# Introduction {#sec-intro}
+
+This document demonstrates all Quarto features with working cross-references. Use it as a test to verify your rendering setup works correctly.
+
+**What this document covers:**
+
+- Images and figures (@sec-images)
+- Tables (@sec-tables)
+- Math equations (@sec-math)
+- Code blocks (@sec-code)
+- And much more...
+
+---
+
+# Images & Figures {#sec-images}
+
+## Basic Image
+
+Here's a simple image without a reference:
+
+![[minimaxalphabeta-assignment.canvas]]
+
+## Figure with Cross-Reference
+
+This is the recommended way to include images:
+
+![[minimaxalphabeta-assignment.canvas|The minimax game tree showing alpha-beta pruning]]{#fig-game-tree}
+
+As shown in @fig-game-tree, the algorithm explores the game tree depth-first, pruning branches that cannot affect the final decision.
+
+## Reference Styles
+
+You can reference figures in different ways:
+
+- Standard: See @fig-game-tree
+- Parenthetical: The algorithm ([@fig-game-tree]) is efficient
+- Number only: Figure -@fig-game-tree shows the tree
+
+---
+
+# Tables {#sec-tables}
+
+## Basic Table
+
+| Algorithm | Type | Year |
+|-----------|------|------|
+| Minimax | Exhaustive | 1928 |
+| Alpha-Beta | Pruning | 1958 |
+| MCTS | Sampling | 2006 |
+
+## Table with Alignment
+
+| Left Aligned | Center | Right |
+|:-------------|:------:|------:|
+| Text | Text | 123.45 |
+| More | More | 67.89 |
+| Values | Here | 0.01 |
+
+## Table with Cross-Reference
+
+| Algorithm | Time Complexity | Space Complexity | Optimal? |
+|-----------|-----------------|------------------|----------|
+| Minimax | O(b^d) | O(bd) | Yes |
+| Alpha-Beta | O(b^(d/2)) | O(bd) | Yes |
+| MCTS | O(n) | O(n) | No |
+
+: Comparison of game-playing algorithms {#tbl-algorithms}
+
+As shown in @tbl-algorithms, alpha-beta pruning significantly reduces the time complexity compared to pure minimax. The space complexity remains the same for both algorithms.
+
+---
+
+# Math Equations {#sec-math}
+
+## Inline Math
+
+The minimax value function is defined as $V(s) = \max_a \min_{s'} V(s')$ for the maximizing player.
+
+The alpha-beta bounds satisfy $\alpha \leq V \leq \beta$ during search.
+
+## Display Math
+
+The optimal value for a two-player zero-sum game:
+
+$$
+V^*(s) = \begin{cases}
+\text{utility}(s) & \text{if } s \text{ is terminal} \\
+\max_{a} V^*(s') & \text{if player is MAX} \\
+\min_{a} V^*(s') & \text{if player is MIN}
+\end{cases}
+$$
+
+## Numbered Equation with Reference
+
+The pruning condition is:
+
+$$
+\alpha \geq \beta \implies \text{prune remaining children}
+$$ {#eq-pruning}
+
+@eq-pruning is the fundamental insight of alpha-beta pruning. When the lower bound (α) exceeds or equals the upper bound (β), we know this branch cannot affect the final result.
+
+## Multiple Aligned Equations
+
+$$
+\begin{aligned}
+\alpha &= \max(\alpha, V(child)) \\
+\beta &= \min(\beta, V(child)) \\
+\text{prune if } \alpha &\geq \beta
+\end{aligned}
+$$ {#eq-update-rules}
+
+The update rules in @eq-update-rules show how bounds are maintained.
+
+---
+
+# Code Blocks {#sec-code}
+
+## Basic Python Code
+
+```python
+def evaluate(board):
+    """Simple evaluation: count piece difference."""
+    return count_white(board) - count_black(board)
+```
+
+## Code with Line Numbers
+
+```{python}
+#| code-line-numbers: true
+
+def minimax(node, depth, is_maximizing):
+    if depth == 0 or is_terminal(node):
+        return evaluate(node)
+    
+    if is_maximizing:
+        value = float('-inf')
+        for child in node.children:
+            value = max(value, minimax(child, depth - 1, False))
+        return value
+    else:
+        value = float('inf')
+        for child in node.children:
+            value = min(value, minimax(child, depth - 1, True))
+        return value
+```
+
+## Code Listing with Reference
+
+```{.python #lst-alphabeta lst-cap="Alpha-Beta Pruning Implementation"}
+def alphabeta(node, depth, alpha, beta, is_max):
+    if depth == 0 or is_terminal(node):
+        return evaluate(node)
+    
+    if is_max:
+        value = float('-inf')
+        for child in node.children:
+            value = max(value, alphabeta(child, depth-1, alpha, beta, False))
+            alpha = max(alpha, value)
+            if alpha >= beta:
+                break  # β cutoff
+        return value
+    else:
+        value = float('inf')
+        for child in node.children:
+            value = min(value, alphabeta(child, depth-1, alpha, beta, True))
+            beta = min(beta, value)
+            if alpha >= beta:
+                break  # α cutoff
+        return value
+```
+
+The implementation in @lst-alphabeta shows how pruning is achieved through the `break` statements when α ≥ β.
+
+## Julia Example
+
+```{.julia #lst-julia lst-cap="Julia evaluation function"}
+function my_heuristic(board::Board)::Int
+    white = count_pieces(board, WHITE)
+    black = count_pieces(board, BLACK)
+    return white - black
+end
+```
+
+See @lst-julia for a simple heuristic function.
+
+---
+
+# Callouts {#sec-callouts}
+
+## Note Callout
+
+::: {.callout-note}
+Alpha-beta pruning never changes the final result of minimax—it only makes the search faster by skipping provably irrelevant branches.
+:::
+
+## Tip Callout
+
+::: {.callout-tip}
+## Performance Optimization
+Order your moves from best to worst (based on heuristics) before searching. This maximizes pruning and can dramatically speed up the search.
+:::
+
+## Warning Callout
+
+::: {.callout-warning}
+## Common Mistake
+Don't forget to negate the value when switching between MAX and MIN nodes in negamax formulations!
+:::
+
+## Important Callout
+
+::: {.callout-important}
+## Critical Insight
+The effectiveness of alpha-beta pruning depends heavily on move ordering. With perfect ordering, you can search twice as deep in the same time.
+:::
+
+## Caution Callout
+
+::: {.callout-caution}
+## Data Loss Risk
+Always backup your evaluation function before making changes. A bad heuristic can make your AI play terribly.
+:::
+
+---
+
+# Lists {#sec-lists}
+
+## Ordered List with Sub-items
+
+1. Initialize the search
+   a. Set α = -∞ (worst for MAX)
+   b. Set β = +∞ (worst for MIN)
+2. Recursively search children
+   a. Update α for MAX nodes
+   b. Update β for MIN nodes
+3. Prune when α ≥ β
+4. Return the best value found
+
+## Unordered List
+
+Key properties of alpha-beta:
+
+- Produces the same result as minimax
+- Time complexity: O(b^(d/2)) with perfect ordering
+- Space complexity: O(bd)
+- Works with any evaluation function
+
+## Task List
+
+Implementation checklist:
+
+- [x] Basic minimax algorithm
+- [x] Alpha-beta pruning
+- [x] Iterative deepening
+- [ ] Transposition tables
+- [ ] Move ordering heuristics
+- [ ] Quiescence search
+
+---
+
+# Theorems & Definitions {#sec-theorems}
+
+::: {#def-minimax}
+## Minimax Value
+The **minimax value** of a game state is the value that would be achieved by both players playing optimally from that state.
+:::
+
+::: {#thm-alphabeta}
+## Alpha-Beta Correctness
+Alpha-beta pruning returns the same value as minimax for any game tree, while potentially examining fewer nodes.
+:::
+
+According to @def-minimax, we compute the optimal value assuming perfect play. @thm-alphabeta guarantees that pruning doesn't affect correctness.
+
+---
+
+# Block Quotes {#sec-quotes}
+
+> "In theory, theory and practice are the same. In practice, they are not."
+>
+> — Yogi Berra
+
+> "The key insight of alpha-beta is that you don't need to explore moves that your opponent will never allow you to reach."
+>
+> — Introductory AI Textbook
+
+---
+
+# Footnotes {#sec-footnotes}
+
+The minimax algorithm was developed by von Neumann[^1] and later improved with alpha-beta pruning[^2].
+
+[^1]: John von Neumann proposed the minimax theorem in 1928 as part of his work on game theory.
+
+[^2]: Alpha-beta pruning was independently discovered by multiple researchers in the late 1950s.
+
+---
+
+# Mermaid Diagrams {#sec-mermaid}
+
+## Flowchart
+
+```{mermaid}
+%%| fig-cap: "Alpha-beta decision process"
+%%| label: fig-ab-flow
+
+flowchart TD
+    A[Start at node] --> B{Terminal or depth=0?}
+    B -->|Yes| C[Return evaluate]
+    B -->|No| D{MAX or MIN?}
+    D -->|MAX| E[value = -∞]
+    D -->|MIN| F[value = +∞]
+    E --> G[For each child]
+    F --> G
+    G --> H{α ≥ β?}
+    H -->|Yes| I[Prune: break]
+    H -->|No| J[Continue to next child]
+```
+
+The flowchart @fig-ab-flow illustrates the decision process at each node.
+
+---
+
+# Figure Layouts {#sec-layouts}
+
+## Side-by-Side Images (layout-ncol)
+
+Two images displayed next to each other:
+
+::: {layout-ncol=2}
+![[minimaxalphabeta-assignment.canvas|Game Tree]]{#fig-layout-a}
+
+![[performance-chart.png|Performance Chart]]{#fig-layout-b}
+:::
+
+Compare @fig-layout-a showing the game tree structure with @fig-layout-b showing algorithm performance.
+
+## Figure Panel with Sub-figures
+
+A panel of figures with individual and overall references:
+
+::: {#fig-panel layout-ncol=2}
+![[minimaxalphabeta-assignment.canvas|The complete tree]]{#fig-panel-tree}
+
+![[performance-chart.png|Comparison results]]{#fig-panel-chart}
+
+Game analysis: tree structure and performance comparison
+:::
+
+The complete analysis is shown in @fig-panel. Specifically, @fig-panel-tree displays the game tree, while @fig-panel-chart shows the benchmark results.
+
+## Custom Grid Layout
+
+Using a 2-1 layout (two on top, one wide below):
+
+::: {layout="[[1,1], [2]]"}
+![[minimaxalphabeta-assignment.png|First view]]
+
+![[performance-chart.png|Second view]]
+
+![[minimaxalphabeta-assignment.png|Wide combined view]]
+:::
+
+---
+
+# Page Break Demo
+
+Content before the page break...
+
+{{< pagebreak >}}
+
+This content appears on a new page after the page break.
+
+---
+
+# Summary {#sec-summary}
+
+This document demonstrated all major Quarto features:
+
+| Feature | Section | Key Syntax |
+|---------|---------|------------|
+| Figures | @sec-images | `{#fig-id}` |
+| Tables | @sec-tables | `: Caption {#tbl-id}` |
+| Equations | @sec-math | `$$ {#eq-id}` |
+| Code | @sec-code | `{.lang #lst-id}` |
+| Theorems | @sec-theorems | `::: {#thm-id}` |
+| Layouts | @sec-layouts | `::: {layout-ncol=2}` |
+
+: Summary of cross-reference syntax {#tbl-summary}
+
+If all sections rendered correctly with working cross-references, your Quarto setup is fully functional!
+
+## All References Test
+
+- Figure: @fig-game-tree, @fig-layout-a, @fig-layout-b, @fig-panel
+- Table: @tbl-algorithms, @tbl-summary
+- Equation: @eq-pruning, @eq-update-rules
+- Code: @lst-alphabeta, @lst-julia
+- Definition: @def-minimax
+- Theorem: @thm-alphabeta
+- Section: @sec-intro, @sec-layouts, @sec-summary

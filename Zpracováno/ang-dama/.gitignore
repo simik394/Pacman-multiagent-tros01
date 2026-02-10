@@ -1,0 +1,11 @@
+/.quarto/
+**/*.quarto_ipynb
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.tex
+*.out
+*.toc
+*_files/
+_build/
