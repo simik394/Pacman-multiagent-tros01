@@ -148,9 +148,18 @@ Jelikož pro @gemini jsou takovéto podvodné zkratky bohužel denní chleba, v 
 - Řešení: Move ordering + silnější diferenciace heuristických hodnot
 
 ### O2: Tiebreaking při minimax
-- Když více tahů má stejnou minimax hodnotu, algoritmus vybere první v pořadí
-- Řešení: Seřadit tahy podle okamžité heuristiky před prohledáváním
-- Vedlejší efekt: Lepší alpha-beta pruning
+
+V základní implementaci minimaxu je výběr nejlepšího tahu **deterministický** a závisí striktně na pořadí generování tahů. Funkce `get_legal_moves` prochází desku systematicky (od shora dolů, zleva doprava). Pokud existuje více tahů se shodným maximálním ohodnocením – což je v koncovkách běžné, kdy mnoho tahů udržuje stejnou "winning" výhodu – algoritmus vybere vždy ten **první nalezený** (`eval > max_eval`, nikoli `>=`).
+
+**Důsledky:**
+
+1.  **Top-Left Bias**: AI systematicky preferuje tahy kameny s nižším indexem (horní část desky). V situaci, kdy má na výběr posunout levého nebo pravého krále se stejným efektem, pohne tím s nižším číslem políčka.
+2.  **Předvídatelnost**: Bez náhodného prvku (tiebreaking) bude AI v identické situaci reagovat vždy stejně. To je výhodné pro ladění, ale nevýhodné pro hru proti člověku.
+3.  **Neefektivita prořezávání**: Pokud jsou nejlepší tahy generovány náhodou až na konci seznamu, alpha-beta algoritmus musí prohledat většinu stromu.
+
+**Řešení (Best Practices):**
+- **Move Ordering**: Seřadit tahy podle jejich okamžité heuristické hodnoty *před* vstupem do rekurze. Tím se zajistí, že nejslibnější tahy jsou prozkoumány jako první, což maximalizuje šanci na brzký $\beta$-cutoff (oříznutí).
+- **Random Noise**: Přičtení zanedbatelného náhodného čísla ($\epsilon \in [0, 10^{-5}]$) k hodnotě listu. To rozbíjí determinismus v rovnocenných pozicích a činí chování AI přirozenějším ("human-like").
 
 ### O3: Operátor vs Kotva
 - **Kotva**: Král, který kontroluje roh (pole 1)
