@@ -140,8 +140,19 @@ function run_experiment(exp::Experiment; search_depth::Int=6, max_turns::Int=40)
     global tree_enabled = true
     reset_tree()
 
+    # Historie pozic pro detekci remízy opakováním
+    position_history = Dict{UInt64,Int}()
+
     for t in 1:max_turns
         # BÍLÝ (MAX)
+        # Detekce opakování před tahem bílého
+        board_hash_w = hash(board, hash(true)) # true = white on turn
+        position_history[board_hash_w] = get(position_history, board_hash_w, 0) + 1
+        if position_history[board_hash_w] >= 3
+            winner = "DRAW (Repetition)"
+            break
+        end
+
         # Používáme minimax_with_tree pro sběr statistik (počet uzlů)
         # Ale neukládáme soubory
         reset_tree()
@@ -175,6 +186,15 @@ function run_experiment(exp::Experiment; search_depth::Int=6, max_turns::Int=40)
         # V zadání je "AI vs AI" nebo "Solver". Předpokládáme self-play.
 
         reset_tree()
+
+        # Detekce opakování před tahem červeného
+        board_hash_r = hash(board, hash(false)) # false = red on turn
+        position_history[board_hash_r] = get(position_history, board_hash_r, 0) + 1
+        if position_history[board_hash_r] >= 3
+            winner = "DRAW (Repetition)"
+            break
+        end
+
         score_r, move_r, _ = minimax_with_tree(
             board, search_depth, -Inf, Inf, false, 0, "ROOT";
             config=exp.config, pruning=exp.pruning

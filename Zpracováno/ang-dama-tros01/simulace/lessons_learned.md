@@ -21,3 +21,8 @@
 
 ## 6. Simulation Scripting
 - **Global scope in `include()`**: When including a script that uses global variables (like `tree_enabled` in `testvaluefunc.jl`), setting them in a local scope (inside a function in another script) defines a *new local* variable, shadowing the global one. Always use `global variable = value` to modify the included script's state.
+
+## 7. Diagnosis of "Optimal" Strategy Failure
+- **Looping vs Winning**: The baseline strategy (with Net Formation) was superior in static evaluation but failed in practice because it created a "local optimum" trap. The AI preferred to oscillate between two high-scoring states rather than make a "lower scoring" move required to progress the game.
+- **Repetition Detection**: The original simulation (`run_assignment_simulation`) masked this by detecting the 3-fold repetition and declaring a Draw. The initial ablation script lacked this check, running until the move limit.
+- **Fix**: Disabling the component that caused the high-score trap (`No_Net`) allowed the AI to find the true winning path. This highlights the danger of over-engineered heuristics without dynamic verification.

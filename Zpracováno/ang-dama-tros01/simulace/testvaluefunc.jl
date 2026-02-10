@@ -1269,7 +1269,8 @@ Parametry:
 - num_turns: počet tahů k simulaci (ze zadání = 2 tahy každého = 4 půltahy)
 - save_trees: ukládat prohledávací stromy do souborů
 """
-function run_assignment_simulation(; search_depth::Int=6, num_turns::Int=2, save_trees::Bool=true)
+function run_assignment_simulation(; search_depth::Int=6, num_turns::Int=2, save_trees::Bool=true,
+    config::HeuristicConfig=DEFAULT_CONFIG, pruning::PruningStrategy=PRUNE_LOSS_OF_PIECE)
     global tree_enabled, current_output_dir
     tree_enabled = save_trees
 
@@ -1300,7 +1301,10 @@ function run_assignment_simulation(; search_depth::Int=6, num_turns::Int=2, save
     log_both("Bílý: 2 králové na pozicích 10 a 14")
     log_both("Červený: 1 král na pozici 1")
     log_both("Bílý je na tahu.")
+    log_both("Bílý je na tahu.")
     log_both("Hloubka prohledávání: $search_depth ($(search_depth÷2) tahy každého hráče)")
+    log_both("Konfigurace heuristiky: UseNet=$(config.use_net), UseCornering=$(config.use_cornering)")
+    log_both("Strategie prořezávání: $(pruning)")
     log_both("="^70)
 
     print_notation_map()
@@ -1358,9 +1362,9 @@ function run_assignment_simulation(; search_depth::Int=6, num_turns::Int=2, save
 
         # Spuštění minimax s logováním stromu
         if save_trees
-            score, best_move, _ = minimax_with_tree(board, search_depth, -Inf, Inf, is_white_turn, 0, "ROOT")
+            score, best_move, _ = minimax_with_tree(board, search_depth, -Inf, Inf, is_white_turn, 0, "ROOT"; config=config, pruning=pruning)
         else
-            score, best_move = minimax(board, search_depth, -Inf, Inf, is_white_turn)
+            score, best_move = minimax(board, search_depth, -Inf, Inf, is_white_turn; config=config, pruning=pruning)
         end
 
         if best_move === nothing
