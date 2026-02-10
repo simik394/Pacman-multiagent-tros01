@@ -188,14 +188,14 @@ Vrátí seznam kompletních tahů (každý reprezentuje celou sekvenci skoků).
 """
 function find_all_jumps(board::Matrix{Int}, pos::Position, piece::Int, player::Int,
     captured_so_far::Vector{Position}, path_so_far::Vector{Position})
-    # Směry pohybu: král všechny 4, pěšec jen dopředu (ale při skákání všechny směry!)
-    # V anglické dámě: pěšec může skákat dozadu při multi-hopu
+    # Směry pohybu: král všechny 4 diagonální směry, pěšec POUZE DOPŘEDU
+    # V anglické dámě: pěšec NESMÍ skákat dozadu (na rozdíl od mezinárodní dámy)
     if is_king(piece)
         directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
     else
         forward_dir = player > 0 ? -1 : 1
-        # Pěšec může skákat VŠEMI směry (pravidlo anglické dámy pro multi-hop)
-        directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+        # Pěšec skáče POUZE DOPŘEDU (pravidlo anglické dámy)
+        directions = [(forward_dir, -1), (forward_dir, 1)]
     end
 
     found_jumps = Move[]
@@ -230,6 +230,15 @@ function find_all_jumps(board::Matrix{Int}, pos::Position, piece::Int, player::I
         new_captured = vcat(captured_so_far, [mid_pos])
         new_path = vcat(path_so_far, [pos])
         new_pos = Position(jump_r, jump_c)
+
+        # PRAVIDLO: Korunovace během skoku UKONČUJE tah
+        # Pokud pěšec dosáhne crown row (bílý→řádek 1, červený→řádek 8),
+        # povýší se na krále a tah okamžitě končí — další skoky se neprovádí.
+        if !is_king(piece) && ((player > 0 && jump_r == 1) || (player < 0 && jump_r == 8))
+            original_pos = isempty(path_so_far) ? pos : path_so_far[1]
+            push!(found_jumps, Move(original_pos, new_pos, true, new_captured, new_path[2:end]))
+            continue  # Korunovace = konec tahu, nevolat rekurzi
+        end
 
         # Simuluj skok pro hledání dalších
         temp_board = copy(board)

@@ -309,6 +309,57 @@ $$ {#eq-retreat}
 
 Váhy ($-1000$, $-600$, $-400$) jsou řádově srovnatelné s $V_{\text{safety}}$ a $V_{\text{squeeze}}$, aby ústup „přebil" drobné poziční bonusy, ale nikoli materiální převahu.
 
+### 8. Vzdálenost červeného od rohu $V_{\text{rdist}}$
+
+Manhattanská vzdálenost červeného od dvojitého rohu $(1,2)$ — čím dále je červený od bezpečného rohu, tím lépe pro bílého:
+
+$$
+V_{\text{rdist}}(s) = 80 \cdot d_{\text{Manhattan}}(r, (1,2))
+$$ {#eq-rdist}
+
+### 9. Diagonální síť $V_{\text{net}}$
+
+Bonus za formaci „kotva + operátor", kde kotva drží pole 1 (roh) a operátor je na vzdálené diagonále. Tato formace vytváří bariéru, která brání červenému v úniku:
+
+$$
+V_{\text{net}}(s) = \begin{cases}
++1200 & \text{pokud kotva na poli 1 a operátor } r \geq 4,\; c \geq 4 \\
++600  & \text{pokud kotva na poli 1 a operátor } r \geq 3,\; c \geq 4 \\
+-800  & \text{pokud } d(\text{operátor}, \text{roh}) \leq 3 \quad (\text{crowding})\\
+0     & \text{jinak}
+\end{cases}
+$$ {#eq-net}
+
+### 10. Přímý útok $V_{\text{attack}}$
+
+Bonus za diagonální sousedství bílého krále s červeným — platí pouze pokud červený **není** v bezpečné zóně $\mathcal{S} = \{1, 5, 28, 32\}$:
+
+$$
+V_{\text{attack}}(s) = \begin{cases}
++150 \cdot |\{w_i : d_\infty(w_i, r) = 1\}| & \text{pokud } r \notin \mathcal{S} \\
+0 & \text{jinak}
+\end{cases}
+$$ {#eq-attack}
+
+kde $d_\infty$ je Čebyševova (šachová) vzdálenost.
+
+### 11. Kontrola dvojitého rohu $V_{\text{ctrl}}$
+
+Kontextově závislý systém bonusů/penalt pro kontrolu rohu:
+
+$$
+V_{\text{ctrl}}(s) = \begin{cases}
++800 & \text{pokud } \exists w_i \text{ na poli 1} \quad (\text{kontrola rohu}) \\[4pt]
+(5 - d_{\min}) \cdot 300 & \text{pokud } d_{\min} \leq 3 \text{ a žádný } w \text{ blízko rohu} \\[4pt]
++400 & \text{pokud } d_{\max} \geq 4 \text{ a jeden } w \text{ blízko rohu (správný spread)} \\
++200 & \text{pokud } d_{\max} \geq 3 \text{ a jeden } w \text{ blízko rohu} \\
+-600 & \text{pokud } d_{\min} \leq 2 \wedge d_{\max} \leq 3 \quad (\text{crowding}) \\
+0    & \text{jinak}
+\end{cases}
+$$ {#eq-ctrl}
+
+kde $d_{\min}, d_{\max}$ jsou Manhattanské vzdálenosti dvou bílých králů od pole 1.
+
 ### Přehled komponent a vah
 
 | # | Komponenta | Rovnice | Klíčová váha | Kód region |
@@ -320,6 +371,10 @@ Váhy ($-1000$, $-600$, $-400$) jsou řádově srovnatelné s $V_{\text{safety}}
 | 5 | $V_{\text{coord}}$ | @eq-coordination | opt. $d_{\text{ww}} \in [2,4]$ | `perfect_coordination` |
 | 6 | $V_{\text{mob}}$ | @eq-mobility | $+10\,000$ (výhra) | `perfect_mobility` |
 | 7 | $V_{\text{retreat}}$ | @eq-retreat | $-1000$ | `perfect_retreat` |
+| 8 | $V_{\text{rdist}}$ | @eq-rdist | $80 \cdot d$ | `perfect_red_pos` |
+| 9 | $V_{\text{net}}$ | @eq-net | $+1200$ (formace) | `perfect_net` |
+| 10 | $V_{\text{attack}}$ | @eq-attack | $+150$ (sousedství) | `perfect_attack` |
+| 11 | $V_{\text{ctrl}}$ | @eq-ctrl | $+800$ (kontrola) | `perfect_corner_control` |
 
 ## Validovaný výsledek
 

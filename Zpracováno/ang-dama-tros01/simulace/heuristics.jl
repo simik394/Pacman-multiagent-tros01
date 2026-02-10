@@ -536,7 +536,7 @@ function perfect_endgame_heuristic(board::Matrix{Int})
 
         # ==========================================================================
         # PRINCIP 2: VYTLAČIT ČERVENÉHO Z DVOJITÉHO ROHU (safety zone)
-        # Bezpečná zóna = pole 1,5,6,9 (dvojitý roh a přilehlá pole)
+        # Bezpečná zóna = pole {1, 5, 28, 32} (čtyři dvojité rohy)
         # Červený v bezpečí = ŠPATNĚ (penalta), červený mimo = DOBŘE (bonus)
         # ==========================================================================
 
@@ -549,7 +549,10 @@ function perfect_endgame_heuristic(board::Matrix{Int})
         score += red_distance_from_corner * 80.0
 
         # SILNÁ penalta/bonus za pozici červeného
-        red_in_safety = (red_row <= 2 && red_col <= 3)
+        # Safety zone = přesně pole {1, 5, 28, 32} (dvojité rohy)
+        SAFETY_FIELDS = Set([1, 5, 28, 32])
+        red_notation = position_to_notation(red_row, red_col)
+        red_in_safety = red_notation in SAFETY_FIELDS
         if red_in_safety
             score -= 600.0  # Red je v bezpečí = VELMI ŠPATNĚ pro bílého
         else
@@ -713,7 +716,7 @@ function perfect_endgame_heuristic(board::Matrix{Int})
         # ==========================================================================
 
         #| region: perfect_attack
-        red_in_corner = (red_row <= 2 && red_col <= 3)
+        red_in_corner = (position_to_notation(red_row, red_col) in Set([1, 5, 28, 32]))
 
         if !red_in_corner  # Pouze když R NENÍ v bezpečí
             for wp in white_positions
