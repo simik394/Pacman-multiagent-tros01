@@ -4,8 +4,12 @@
 # LaTeX build artifacts
 *.aux
 *.log
-*.tex
 *.out
 *.toc
+*.pdf
+*.gz
+*.fdb_latexmk
+*.fls
+*.synctex.gz
 *_files/
 _build/
