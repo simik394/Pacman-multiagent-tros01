@@ -14,10 +14,10 @@ book:
   chapters:
     - index.qmd
     - 1..dohrání/alphabeta-sim-tros01.qmd
-    - 2..simulace/src/myHer-val-func-docs.qmd
-    - 2..simulace/src/optimalHer-val-func-docs.qmd
+    # - 2..simulace/src/myHer-val-func-docs.qmd
+    # - 2..simulace/src/optimalHer-val-func-docs.qmd
     - 2..simulace/src/perfectHer-val-func-docs.qmd
-    - 2..simulace/src/comparison-val-func-docs.qmd
+    # - 2..simulace/src/comparison-val-func-docs.qmd
 
 # metadata-files:
 #   - /home/sim/.config/quarto/shared/quarto-base.yml
