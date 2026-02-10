@@ -8,7 +8,7 @@ format:
     colorlinks: true
     header-includes:
       - '\usepackage{caption}'
-    include-before-body: /home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama/titlepage.tex
+    include-before-body: /home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/titlepage.tex
     number-sections: true
     toc: true
 ---
@@ -40,9 +40,9 @@ Každopádně vytlačení červeného z jeho pevnosti je nezbytný první krok k
 
 ::: {#fig-sidebyside layout-ncol=2}
 
-![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama/minimaxalphabeta-assignment.excalidraw.md#^frame=safecornerblock|Bezpečně zablokovaná cesta z dvojitého rohu]]{#fig-block-partial-double-corner}
+![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=safecornerblock|Bezpečně zablokovaná cesta z dvojitého rohu]]{#fig-block-partial-double-corner}
 
-!![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama/minimaxalphabeta-assignment.excalidraw.md#^frame=doublecornerblunder|Nedostatečné zablokování => 1v1 v lepším případě]]{#fig-lose-stone-nextto-double-corner}
+!![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=doublecornerblunder|Nedostatečné zablokování => 1v1 v lepším případě]]{#fig-lose-stone-nextto-double-corner}
 
 Analýza možností v stavu 2v1 ve dvojitém rohu
 :::
@@ -52,7 +52,7 @@ Analýza možností v stavu 2v1 ve dvojitém rohu
 ### Kontrola hry {#sec-kontrola-hry}
 Vychozí pozice bílého představuje dokonalý stav hry k tomu aby mohl být červený efektivně dotlačen do situace kdy mu nezbude jiná volba než smrt. Efektivitou postupu dotlačení je v tomto případě myšleno vynucení takových situací pro červeného kdy jeho jediné dostupné tahy budou představovat buďto smrt, nebo tah který vede směrem do pasti která představuje výhru pro bílého @fig-seconds-before-WW.
 
-![[minimaxalphabeta-assignment.excalidraw.md#^frame=03|Tři tahy před výhrou bílého]]{#fig-seconds-before-WW fig-pos="H"} 
+![[minimaxalphabeta-assignment.excalidraw.md#^frame=forcedending|Tři tahy před výhrou bílého]]{#fig-seconds-before-WW fig-pos="H"} 
 
 ## Klíčové momenty koncovky
 
@@ -85,7 +85,7 @@ Vzhledem k zadání a pravidlům koncovky je stav, kdy bílému zbude pouze jedn
 <!-- - **Hodnota**: Takovému uzlu je okamžitě přiřazena hodnota $-\infty$ (nebo velmi nízká konstanta), což zajistí, že MAX hráč (bílý) se této větvi vyhne, pokud má jinou možnost. -->
 <!-- - **Efekt**: Toto doménově specifické ořezávání výrazně zmenšuje stavový prostor, protože eliminuje nutnost propočítávat prohrané varianty až do maximální hloubky. -->
 
-![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama/minimaxalphabeta-assignment.excalidraw.md#^frame=6plydeepbutstillstarting|Stav 6 půltahů hluboko ve větvi kde byl na začátku zvolen jeden půltah bíleho směrem k poli 32 a nikoliv ve směru pronásledování oponenta v rohu opačnem.]]{#fig-6ply-deep-but-still-starting}
+![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=6plydeepbutstillstarting|Stav 6 půltahů hluboko ve větvi kde byl na začátku zvolen jeden půltah bíleho směrem k poli 32 a nikoliv ve směru pronásledování oponenta v rohu opačnem.]]{#fig-6ply-deep-but-still-starting}
 
 
 
