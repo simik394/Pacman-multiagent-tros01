@@ -13,3 +13,11 @@
 
 ## 4. Julia syntax
 - `const` cannot be used inside functions in Julia. Use regular variables or define constants at module scope.
+
+## 5. Value Function Tuning via Ablation
+- **Surprising discoveries**: Ablation studies are crucial. We found that the complex "Net Formation" heuristic, designed for 2v1 endgames, was actually causing the AI to draw (by preventing simple direct attacks) instead of winning. Removing it led to a win in 9 moves.
+- **Component interaction**: Individual components might be "logical" in isolation but counter-productive when combined with others (e.g., Cornering vs Net).
+- **Pruning savings**: Simple "LossOfPiece" pruning (pseudo-terminal state) saved ~9% of search nodes without affecting decision quality (Baseline vs Pruning_None).
+
+## 6. Simulation Scripting
+- **Global scope in `include()`**: When including a script that uses global variables (like `tree_enabled` in `testvaluefunc.jl`), setting them in a local scope (inside a function in another script) defines a *new local* variable, shadowing the global one. Always use `global variable = value` to modify the included script's state.

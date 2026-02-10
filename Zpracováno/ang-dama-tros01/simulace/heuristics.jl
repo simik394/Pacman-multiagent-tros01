@@ -7,12 +7,53 @@
 #
 # Konvence: Kladné hodnoty = výhodné pro BÍLÉHO, záporné = výhodné pro ČERVENÉHO
 #
+# ==============================================================================
+# 
 # POUŽITÍ:
 #   include("heuristics.jl")
-#   white_heuristic = my_heuristic
-#   red_heuristic = simple_material_heuristic
+#   # Standardní použití
+#   score = perfect_endgame_heuristic(board)
+#   
+#   # Konfigurovatelné použití (pro ablační studie)
+#   config = HeuristicConfig(use_cornering=false)
+#   score = perfect_endgame_heuristic(board, config)
 #
 # ==============================================================================
+
+# ------------------------------------------------------------------------------
+# KONFIGURACE HEURISTIKY (PRO ABLAČNÍ STUDIE)
+# ------------------------------------------------------------------------------
+
+"""
+Konfigurace pro vypínání/zapínání jednotlivých komponent heuristiky.
+Vhodné pro ablační studie.
+"""
+struct HeuristicConfig
+    use_material::Bool
+    use_cornering::Bool       # Vytlačení z centra + Safety zone penalta
+    use_coordination::Bool    # Vzdálenost králů + Bracketing
+    use_mobility::Bool        # Počet tahů soupeře
+    use_retreat::Bool         # Penalta za zbytečný ústup
+    use_net::Bool             # Diagonální síť (net formation)
+    use_attack::Bool          # Přímé sousedství
+    use_ctrl::Bool            # Kontrola rohu
+
+    # Konstruktor s defaultními hodnotami (vše zapnuto)
+    HeuristicConfig(;
+        use_material=true,
+        use_cornering=true,
+        use_coordination=true,
+        use_mobility=true,
+        use_retreat=true,
+        use_net=true,
+        use_attack=true,
+        use_ctrl=true
+    ) = new(use_material, use_cornering, use_coordination, use_mobility,
+        use_retreat, use_net, use_attack, use_ctrl)
+end
+
+# Defaultní konfigurace (vše zapnuto)
+const DEFAULT_CONFIG = HeuristicConfig()
 
 # ------------------------------------------------------------------------------
 # HLAVNÍ HEURISTIKA - Plně vybavená s endgame logikou
@@ -474,14 +515,18 @@ Přesně následuje optimální sekvenci z optimal-sequence.md:
 Celkem: 6 bílých tahů do výhry.
 """
 #| region: perfect_endgame_heuristic_start
-function perfect_endgame_heuristic(board::Matrix{Int})
+#| region: perfect_endgame_heuristic_start
+"""
+Pomocná funkce: Materiál
+"""
+function eval_material(board::Matrix{Int}, config::HeuristicConfig)
+    if !config.use_material
+        return (0.0, 0, 0, Tuple{Int,Int}[], Tuple{Int,Int}[])
+    end
+
     score = 0.0
-
-    # Lokální konstanty
     const_KING = 100.0
-    const_WIN = 10000.0
 
-    # Počítadla
     white_kings = 0
     red_kings = 0
     white_positions = Tuple{Int,Int}[]
@@ -493,8 +538,6 @@ function perfect_endgame_heuristic(board::Matrix{Int})
             continue
         end
 
-        # --- A. MATERIÁL ---
-        #| region: perfect_material
         if is_white(p)
             score += is_king(p) ? const_KING : 40.0
             if is_king(p)
@@ -508,8 +551,58 @@ function perfect_endgame_heuristic(board::Matrix{Int})
                 push!(red_positions, (r, c))
             end
         end
-        #| endregion: perfect_material
     end
+
+    return score, white_kings, red_kings, white_positions, red_positions
+end
+
+function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=DEFAULT_CONFIG)
+    score = 0.0
+    const_WIN = 10000.0
+
+    # 1. Materiál a získání pozic
+    # I když je materiál vypnutý, potřebujeme pozice pro ostatní výpočty
+    # Proto eval_material vrátí pozice vždy, ale skóre jen když je zapnuto
+    # (upravíme logiku eval_material nebo ji zavoláme chytře)
+
+    # Pro efektivitu a ablační studii:
+    # Potřebujeme pozice VŽDY. Skóre materiálu jen když config.use_material.
+
+    # --- A. MATERIÁL & POZICE ---
+    mat_score = 0.0
+    const_KING = 100.0
+
+    white_kings = 0
+    red_kings = 0
+    white_positions = Tuple{Int,Int}[]
+    red_positions = Tuple{Int,Int}[]
+
+    for r in 1:8, c in 1:8
+        p = board[r, c]
+        if p == EMPTY
+            continue
+        end
+
+        if is_white(p)
+            if config.use_material
+                mat_score += is_king(p) ? const_KING : 40.0
+            end
+            if is_king(p)
+                white_kings += 1
+                push!(white_positions, (r, c))
+            end
+        else
+            if config.use_material
+                mat_score -= is_king(p) ? const_KING : 40.0
+            end
+            if is_king(p)
+                red_kings += 1
+                push!(red_positions, (r, c))
+            end
+        end
+    end
+
+    score += mat_score
 
     # Vítězství / prohra
     if red_kings == 0
@@ -536,254 +629,252 @@ function perfect_endgame_heuristic(board::Matrix{Int})
 
         # ==========================================================================
         # PRINCIP 2: VYTLAČIT ČERVENÉHO Z DVOJITÉHO ROHU (safety zone)
-        # Bezpečná zóna = pole {1, 5, 28, 32} (čtyři dvojité rohy)
-        # Červený v bezpečí = ŠPATNĚ (penalta), červený mimo = DOBŘE (bonus)
         # ==========================================================================
+        if config.use_cornering
+            double_corner_row, double_corner_col = 1, 2
 
-        double_corner_row, double_corner_col = 1, 2
+            #| region: perfect_red_pos
+            red_distance_from_corner = abs(red_row - double_corner_row) + abs(red_col - double_corner_col)
 
-        #| region: perfect_red_pos
-        red_distance_from_corner = abs(red_row - double_corner_row) + abs(red_col - double_corner_col)
+            # Bonus za vzdálenost od rohu (čím dále, tím lépe)
+            score += red_distance_from_corner * 80.0
 
-        # Bonus za vzdálenost od rohu (čím dále, tím lépe)
-        score += red_distance_from_corner * 80.0
-
-        # SILNÁ penalta/bonus za pozici červeného
-        # Safety zone = přesně pole {1, 5, 28, 32} (dvojité rohy)
-        SAFETY_FIELDS = Set([1, 5, 28, 32])
-        red_notation = position_to_notation(red_row, red_col)
-        red_in_safety = red_notation in SAFETY_FIELDS
-        if red_in_safety
-            score -= 600.0  # Red je v bezpečí = VELMI ŠPATNĚ pro bílého
-        else
-            score += 500.0  # Red je mimo bezpečí = VELMI DOBŘE pro bílého
+            # SILNÁ penalta/bonus za pozici červeného
+            # Safety zone = přesně pole {1, 5, 28, 32} (dvojité rohy)
+            SAFETY_FIELDS = Set([1, 5, 28, 32])
+            red_notation = position_to_notation(red_row, red_col)
+            red_in_safety = red_notation in SAFETY_FIELDS
+            if red_in_safety
+                score -= 600.0  # Red je v bezpečí = VELMI ŠPATNĚ pro bílého
+            else
+                score += 500.0  # Red je mimo bezpečí = VELMI DOBŘE pro bílého
+            end
+            #| endregion: perfect_red_pos
         end
-        #| endregion: perfect_red_pos
 
         # ==========================================================================
         # PRINCIP 3: KOORDINOVANÝ ÚTOK (SQUEEZE)
-        # Jeden král jako "kotva/blokátor", druhý "operuje"
-        # Optimální vzdálenost mezi králi: 2-3 pole
         # ==========================================================================
 
         if length(white_positions) >= 2
             wp1, wp2 = white_positions[1], white_positions[2]
             king_distance = abs(wp1[1] - wp2[1]) + abs(wp1[2] - wp2[2])
 
-            # Optimální koordinace: vzdálenost 2-4
-            #| region: perfect_coordination
-            if king_distance >= 2 && king_distance <= 4
-                score += 300.0  # Dobrá koordinace
-            elseif king_distance == 1
-                score += 100.0  # Příliš blízko - méně efektivní
-            elseif king_distance >= 5
-                score -= 100.0  # Příliš daleko - nekoordinovaní
-            end
-
-            # Bonus za "sevření" - oba králové blízko červenému
+            # Průměrná vzdálenost k červenému (potřebná pro retreat i coord)
             dist_wp1_to_red = abs(wp1[1] - red_row) + abs(wp1[2] - red_col)
             dist_wp2_to_red = abs(wp2[1] - red_row) + abs(wp2[2] - red_col)
-
-            # Průměrná vzdálenost k červenému (menší = lepší sevření)
             avg_dist = (dist_wp1_to_red + dist_wp2_to_red) / 2.0
-            score += (6.0 - avg_dist) * 60.0  # Bonus za blízkost
-            #| endregion: perfect_coordination
+
+            if config.use_coordination
+                # Optimální koordinace: vzdálenost 2-4
+                #| region: perfect_coordination
+                if king_distance >= 2 && king_distance <= 4
+                    score += 300.0  # Dobrá koordinace
+                elseif king_distance == 1
+                    score += 100.0  # Příliš blízko - méně efektivní
+                elseif king_distance >= 5
+                    score -= 100.0  # Příliš daleko - nekoordinovaní
+                end
+
+                # Bonus za "sevření" - oba králové blízko červenému
+                # Průměrná vzdálenost k červenému (menší = lepší sevření)
+                score += (6.0 - avg_dist) * 60.0  # Bonus za blízkost
+                #| endregion: perfect_coordination
+            end
 
             # ==========================================================================
             # PRINCIP 3C: PENALTA ZA ZBYTEČNÝ ÚSTUP (pseudo-terminál)
-            # Pokud se W vzdálí od R více než je nutné, jen to prodlužuje hru
-            # Optimální bezpečná vzdálenost je 2-4, vzdálenost >5 je zbytečná
             # ==========================================================================
 
-            max_dist = max(dist_wp1_to_red, dist_wp2_to_red)
+            if config.use_retreat
+                max_dist = max(dist_wp1_to_red, dist_wp2_to_red)
 
-            #| region: perfect_retreat
-            # Pokud OBADVA králové jsou daleko od R = ústup/promarněná příležitost
-            if avg_dist > 5.0
-                score -= 1000.0  # SILNÁ penalta - pseudo-terminální stav
-            elseif avg_dist > 4.0
-                score -= 400.0   # Střední penalta - zbytečná vzdálenost
+                #| region: perfect_retreat
+                # Pokud OBADVA králové jsou daleko od R = ústup/promarněná příležitost
+                if avg_dist > 5.0
+                    score -= 1000.0  # SILNÁ penalta - pseudo-terminální stav
+                elseif avg_dist > 4.0
+                    score -= 400.0   # Střední penalta - zbytečná vzdálenost
+                end
+
+                # Pokud NEJBLIŽŠÍ král je stále daleko = špatná pozice
+                min_dist = min(dist_wp1_to_red, dist_wp2_to_red)
+                if min_dist > 4
+                    score -= 600.0   # Žádný W není v útočné vzdálenosti
+
+                end
+                #| endregion: perfect_retreat
             end
-
-            # Pokud NEJBLIŽŠÍ král je stále daleko = špatná pozice
-            min_dist = min(dist_wp1_to_red, dist_wp2_to_red)
-            if min_dist > 4
-                score -= 600.0   # Žádný W není v útočné vzdálenosti
-
-            end
-            #| endregion: perfect_retreat
 
             # Bonus za "obklíčení" - králové na opačných stranách červeného
-            # Rozdíl v řádcích nebo sloupcích mezi králi relativně k červenému
-            row_bracket = (wp1[1] - red_row) * (wp2[1] - red_row) < 0  # Jeden nad, jeden pod
-            col_bracket = (wp1[2] - red_col) * (wp2[2] - red_col) < 0  # Jeden vlevo, jeden vpravo
+            if config.use_coordination
+                # Rozdíl v řádcích nebo sloupcích mezi králi relativně k červenému
+                row_bracket = (wp1[1] - red_row) * (wp2[1] - red_row) < 0  # Jeden nad, jeden pod
+                col_bracket = (wp1[2] - red_col) * (wp2[2] - red_col) < 0  # Jeden vlevo, jeden vpravo
 
-            if row_bracket || col_bracket
-                score += 200.0  # Červený je mezi králi
+                if row_bracket || col_bracket
+                    score += 200.0  # Červený je mezi králi
+                end
             end
 
             # ==========================================================================
             # PRINCIP 3B: DIAGONAL NET FORMATION
-            # Když kotva drží roh (pole 1), operátor by měl jít diagonálně
-            # k vytvoření sítě. Preference pro pozice na hlavní diagonále (3-6-10-15...)
             # ==========================================================================
 
-            #| region: perfect_net
-            # Zjisti, který král je kotva (blíž k rohu) a který operátor
-            dist1_to_corner = abs(wp1[1] - 1) + abs(wp1[2] - 2)
-            dist2_to_corner = abs(wp2[1] - 1) + abs(wp2[2] - 2)
+            if config.use_net
+                #| region: perfect_net
+                # Zjisti, který král je kotva (blíž k rohu) a který operátor
+                dist1_to_corner = abs(wp1[1] - 1) + abs(wp1[2] - 2)
+                dist2_to_corner = abs(wp2[1] - 1) + abs(wp2[2] - 2)
 
-            anchor = dist1_to_corner < dist2_to_corner ? wp1 : wp2
-            operator = dist1_to_corner < dist2_to_corner ? wp2 : wp1
+                anchor = dist1_to_corner < dist2_to_corner ? wp1 : wp2
+                operator = dist1_to_corner < dist2_to_corner ? wp2 : wp1
 
-            # Pokud kotva je na poli 1 (row=1, col=2)
-            if anchor[1] == 1 && anchor[2] == 2
-                # Operátor by měl být na diagonále směrem pryč od rohu
-                # Preferované pozice: pole 18 (row=5,col=4), 15 (row=4,col=6), 23 atd.
-                op_row, op_col = operator
+                # Pokud kotva je na poli 1 (row=1, col=2)
+                if anchor[1] == 1 && anchor[2] == 2
+                    # Operátor by měl být na diagonále směrem pryč od rohu
+                    # Preferované pozice: pole 18 (row=5,col=4), 15 (row=4,col=6), 23 atd.
+                    op_row, op_col = operator
 
-                # Vzdálenost operátora od rohu
-                op_dist_from_corner = abs(op_row - 1) + abs(op_col - 2)
+                    # Vzdálenost operátora od rohu
+                    op_dist_from_corner = abs(op_row - 1) + abs(op_col - 2)
 
-                # SILNÝ bonus za operátora na hlavní diagonále pryč od rohu
-                # Pole 18 = (5,4), pole 15 = (4,6), pole 22 = (6,5) atd.
-                if op_row >= 4 && op_col >= 4  # Diagonála směrem dolů/doprava
-                    score += 1200.0  # KLÍČOVÝ bonus pro správnou formaci
-                elseif op_row >= 3 && op_col >= 4  # Přijatelná pozice
-                    score += 600.0
+                    # SILNÝ bonus za operátora na hlavní diagonále pryč od rohu
+                    # Pole 18 = (5,4), pole 15 = (4,6), pole 22 = (6,5) atd.
+                    if op_row >= 4 && op_col >= 4  # Diagonála směrem dolů/doprava
+                        score += 1200.0  # KLÍČOVÝ bonus pro správnou formaci
+                    elseif op_row >= 3 && op_col >= 4  # Přijatelná pozice
+                        score += 600.0
+                    end
+
+                    # SILNÁ penalta za operátora blízko rohu (crowding)
+                    # Pole 10 = (3,4), pole 6 = (2,3) - tyto pozice jsou ŠPATNÉ
+                    if op_dist_from_corner <= 3
+                        score -= 800.0  # Crowding penalta
+                    end
                 end
-
-                # SILNÁ penalta za operátora blízko rohu (crowding)
-                # Pole 10 = (3,4), pole 6 = (2,3) - tyto pozice jsou ŠPATNÉ
-                if op_dist_from_corner <= 3
-                    score -= 800.0  # Crowding penalta
-                end
+                #| endregion: perfect_net
             end
-            #| endregion: perfect_net
         end
 
         # ==========================================================================
         # PRINCIP 4: MOBILITA ČERVENÉHO
-        # Čím méně tahů má červený, tím lépe
-        # 0 tahů = výhra, 1 tah = téměř výhra
         # ==========================================================================
 
-        #| region: perfect_mobility
-        try
-            red_moves = get_legal_moves(board, RED)
-            num_moves = length(red_moves)
+        if config.use_mobility
+            #| region: perfect_mobility
+            try
+                red_moves = get_legal_moves(board, RED)
+                num_moves = length(red_moves)
 
-            if num_moves == 0
-                score += const_WIN  # Výhra
-            elseif num_moves == 1
-                score += 600.0  # Excelentní - červený v pasti
-            elseif num_moves == 2
-                score += 300.0  # Dobré - omezená mobilita
-            elseif num_moves == 3
-                score += 100.0  # Přijatelné
+                if num_moves == 0
+                    score += const_WIN  # Výhra
+                elseif num_moves == 1
+                    score += 600.0  # Excelentní - červený v pasti
+                elseif num_moves == 2
+                    score += 300.0  # Dobré - omezená mobilita
+                elseif num_moves == 3
+                    score += 100.0  # Přijatelné
+                end
+                # 4+ tahů = žádný bonus
+            catch e
             end
-            # 4+ tahů = žádný bonus
-        catch e
+            #| endregion: perfect_mobility
         end
-        #| endregion: perfect_mobility
 
         # ==========================================================================
         # PRINCIP 5: CORNERING - tlačit k okrajům ("KONTROLA HRY")
-        # Červený na krajích desky má méně únikových cest
         # ==========================================================================
 
-        #| region: perfect_cornering
-        # Vzdálenost od středu desky (střed = 4.5, 4.5)
-        center_row, center_col = 4.5, 4.5
-        red_dist_from_center = abs(red_row - center_row) + abs(red_col - center_col)
+        if config.use_cornering
+            #| region: perfect_cornering
+            # Vzdálenost od středu desky (střed = 4.5, 4.5)
+            center_row, center_col = 4.5, 4.5
+            red_dist_from_center = abs(red_row - center_row) + abs(red_col - center_col)
 
-        # Bonus za červeného daleko od středu (na okrajích)
-        score += red_dist_from_center * 40.0
+            # Bonus za červeného daleko od středu (na okrajích)
+            score += red_dist_from_center * 40.0
 
-        # Extra bonus za skutečný okraj (první nebo poslední řádek/sloupec)
-        if red_row == 1 || red_row == 8
-            score += 150.0
+            # Extra bonus za skutečný okraj (první nebo poslední řádek/sloupec)
+            if red_row == 1 || red_row == 8
+                score += 150.0
+            end
+            if red_col == 1 || red_col == 8
+                score += 150.0
+            end
+            #| endregion: perfect_cornering
         end
-        if red_col == 1 || red_col == 8
-            score += 150.0
-        end
-        #| endregion: perfect_cornering
 
         # ==========================================================================
         # BONUS ZA PŘÍMÉ SOUSEDSTVÍ (ÚTOK)
-        # Pokud jsme přímo vedle červeného, můžeme ho brzy skočit
-        # ALE: Pokud R je v rohu, sousedství nepomáhá - R unikne druhou stranou!
         # ==========================================================================
 
-        #| region: perfect_attack
-        red_in_corner = (position_to_notation(red_row, red_col) in Set([1, 5, 28, 32]))
+        if config.use_attack
+            #| region: perfect_attack
+            red_in_corner = (position_to_notation(red_row, red_col) in Set([1, 5, 28, 32]))
 
-        if !red_in_corner  # Pouze když R NENÍ v bezpečí
-            for wp in white_positions
-                row_diff = abs(wp[1] - red_row)
-                col_diff = abs(wp[2] - red_col)
-                if row_diff == 1 && col_diff == 1
-                    score += 150.0  # Diagonálně sousedíme
+            if !red_in_corner  # Pouze když R NENÍ v bezpečí
+                for wp in white_positions
+                    row_diff = abs(wp[1] - red_row)
+                    col_diff = abs(wp[2] - red_col)
+                    if row_diff == 1 && col_diff == 1
+                        score += 150.0  # Diagonálně sousedíme
+                    end
                 end
             end
+            #| endregion: perfect_attack
         end
-        #| endregion: perfect_attack
 
         # ==========================================================================
         # PRINCIP 6: KONTROLA DVOJITÉHO ROHU - KONTEXTOVĚ ZÁVISLÉ
-        # Když R JE v rohu: W by mělo tvořit diagonální síť (spread), NE crowdovat
-        # Když R NENÍ v rohu: W může kontrolovat roh pro zablokování návratu
-        # ==========================================================================
-        # PRINCIP 6: KONTROLA DVOJITÉHO ROHU - NOVÁ LOGIKA
-        # - Corner bonus POUZE když žádný W není v rohu (incentivizuje PRVNÍHO)
-        # - Jakmile jeden W je v rohu, druhý by měl jít diagonálně (squeeze setup)
-        # - R v rohu je startovní pozice, ne důvod k penalizaci
         # ==========================================================================
 
-        #| region: perfect_corner_control
-        if length(white_positions) >= 2
-            wp1, wp2 = white_positions[1], white_positions[2]
+        if config.use_ctrl
+            #| region: perfect_corner_control
+            if length(white_positions) >= 2
+                wp1, wp2 = white_positions[1], white_positions[2]
 
-            # Je některý W přímo na poli 1 (row=1, col=2)?
-            white_at_corner = any(wp -> wp[1] == 1 && wp[2] == 2, white_positions)
+                # Je některý W přímo na poli 1 (row=1, col=2)?
+                white_at_corner = any(wp -> wp[1] == 1 && wp[2] == 2, white_positions)
 
-            # Je některý W blízko rohu (distance <= 2)?
-            dist1 = abs(wp1[1] - 1) + abs(wp1[2] - 2)
-            dist2 = abs(wp2[1] - 1) + abs(wp2[2] - 2)
-            white_near_corner = (min(dist1, dist2) <= 2)
+                # Je některý W blízko rohu (distance <= 2)?
+                dist1 = abs(wp1[1] - 1) + abs(wp1[2] - 2)
+                dist2 = abs(wp2[1] - 1) + abs(wp2[2] - 2)
+                white_near_corner = (min(dist1, dist2) <= 2)
 
-            if !white_near_corner
-                # === ŽÁDNÝ W BLÍZKO ROHU: incentivizuj přiblížení JEDNOHO ===
-                # Bonus za přiblížení k rohu (pro prvního krále)
-                # SILNÝ bonus aby dominoval nad jinými metrikami
-                closer_dist = min(dist1, dist2)
-                if closer_dist <= 3
-                    score += (5 - closer_dist) * 300.0  # Čím blíž, tím lépe (ZVÝŠENO!)
+                if !white_near_corner
+                    # === ŽÁDNÝ W BLÍZKO ROHU: incentivizuj přiblížení JEDNOHO ===
+                    # Bonus za přiblížení k rohu (pro prvního krále)
+                    # SILNÝ bonus aby dominoval nad jinými metrikami
+                    closer_dist = min(dist1, dist2)
+                    if closer_dist <= 3
+                        score += (5 - closer_dist) * 300.0  # Čím blíž, tím lépe (ZVÝŠENO!)
+                    end
+                else
+                    # === JEDEN W BLÍZKO ROHU: druhý by měl být na diagonále ===
+                    # Operátor (vzdálenější král) by měl být na pozici pro squeeze
+                    farther_dist = max(dist1, dist2)
+
+                    # Bonus za dobrý spread operátora
+                    if farther_dist >= 4
+                        score += 400.0  # Operátor správně vzdálený
+                    elseif farther_dist >= 3
+                        score += 200.0
+                    end
+
+                    # Penalta pokud OBA jsou příliš blízko rohu (crowding)
+                    if min(dist1, dist2) <= 2 && max(dist1, dist2) <= 3
+                        score -= 600.0  # Crowding!
+                    end
                 end
-            else
-                # === JEDEN W BLÍZKO ROHU: druhý by měl být na diagonále ===
-                # Operátor (vzdálenější král) by měl být na pozici pro squeeze
-                farther_dist = max(dist1, dist2)
 
-                # Bonus za dobrý spread operátora
-                if farther_dist >= 4
-                    score += 400.0  # Operátor správně vzdálený
-                elseif farther_dist >= 3
-                    score += 200.0
-                end
-
-                # Penalta pokud OBA jsou příliš blízko rohu (crowding)
-                if min(dist1, dist2) <= 2 && max(dist1, dist2) <= 3
-                    score -= 600.0  # Crowding!
+                # Bonus za W přímo na poli 1 (vždy dobrý - kontroluje roh)
+                if white_at_corner
+                    score += 800.0
                 end
             end
-
-            # Bonus za W přímo na poli 1 (vždy dobrý - kontroluje roh)
-            if white_at_corner
-                score += 800.0
-            end
+            #| endregion: perfect_corner_control
         end
-        #| endregion: perfect_corner_control
     end
 
     return round(score, digits=1)

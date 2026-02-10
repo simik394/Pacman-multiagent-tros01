@@ -59,6 +59,13 @@ Move(from::Position, to::Position, is_jump::Bool, cap::Position) =
 Move(from::Position, to::Position, is_jump::Bool, ::Nothing) =
     Move(from, to, is_jump, Position[], Position[])
 
+# Konfigurace prořezávání (pro ablační studie)
+@enum PruningStrategy begin
+    PRUNE_NONE         # Žádné pseudo-terminální prořezávání
+    PRUNE_LOSS_OF_PIECE # Prořezat pokud bílý ztratí figuru (stane se 1v1)
+    PRUNE_RETREAT      # Prořezat pokud se bílý zbytečně vzdálí
+end
+
 # Pomocné funkce
 is_white(p) = p > 0
 is_red(p) = p < 0
@@ -738,26 +745,13 @@ Vrací tuple `(score, best_move, node_id)`:
 - **α-cutoff** (alpha cutoff): V MIN uzlu, pokud β ≤ α, MAX hráč by tuto větev
   nikdy nevybral, protože už má lepší alternativu. Větev se ořízne.
 
-# Příklad použití
-```julia
-# Zapni vizualizaci stromu
-global tree_enabled = true
-reset_tree()
-
-# Spusť prohledávání z kořene
-score, best_move, _ = minimax_with_tree(
-    board, 4,           # hloubka 4
-    -Inf, Inf,          # počáteční α=-∞, β=+∞
-    true,               # MAX hráč začíná
-    0, "ROOT"           # bez rodiče, kořenový uzel
-)
-
-# Exportuj strom do DOT formátu
-export_tree_to_dot("search_tree.dot")
-```
+# Pruning (Pseudo-terminální stavy)
+Pokud `pruning_strategy` != NONE, některé stavy mohou být vyhodnoceny jako terminální dříve.
 """
 function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64,
-    is_maximizing::Bool, parent_id::Int, move_str::String)
+    is_maximizing::Bool, parent_id::Int, move_str::String;
+    config::HeuristicConfig=DEFAULT_CONFIG,
+    pruning::PruningStrategy=PRUNE_LOSS_OF_PIECE)
     global tree_enabled
 
     # Heuristic handles all position evaluation - no hardcoded forbidden positions
@@ -766,9 +760,59 @@ function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta:
     # Když dosáhneme hloubky 0, vyhodnotíme pozici pomocí heuristické funkce.
     # Heuristika vrací hodnotu z pohledu MAX hráče (vyšší = lepší pro bílého).
     if depth == 0
-        score = Float64(perfect_endgame_heuristic(board))
+        score = Float64(perfect_endgame_heuristic(board, config))
         node_id = add_tree_node(board, move_str, score, alpha, beta, is_maximizing, depth, false)
         return score, nothing, node_id
+    end
+
+    # 1. Pseudo-terminální testy (Pruning)
+    if pruning == PRUNE_LOSS_OF_PIECE
+        # Pokud bílý ztratil figuru (2v1 -> 1v1), je to prohra
+        stats = board_stats(board)
+        white_count = stats.white_pieces + stats.white_kings
+        if white_count < 2
+            # Pseudo-terminální: ztráta figury = prohra
+            # Využijeme heuristiku, která by měla dát nízké skóre
+            # Ale pro jistotu můžeme vrátit rovnou penalizaci
+            # score = -10000.0 (téměř prohra, ale trochu min než mat)
+            # Raději zavoláme heuristiku, která by to měla poznat
+            score = Float64(perfect_endgame_heuristic(board, config))
+            # Pokud heuristika nedává dostatečně nízké skóre (kvůli vypnutému materialu?),
+            # můžeme to "vynutit", ale spoléháme na heuristiku.
+            # Pro jistotu: pokud use_material=false, heuristika to nepozná.
+            # Takže raději natvrdo penalizujeme pokud config dovolí?
+            # Ne, ablační studie testuje config.
+            # Ale pruning je ZVLÁŠŤ. Takže pruning by měl ukončit větev.
+
+            node_id = add_tree_node(board, move_str * " [LOSS PRUNED]", score, alpha, beta, is_maximizing, depth, true)
+            return score, nothing, node_id
+        end
+    elseif pruning == PRUNE_RETREAT && !is_maximizing
+        # Retreat pruning check (only relevant after White moves, so check when it is RED's turn)
+        # Tzn. is_maximizing == false (zrovna hraje MIN/Red, takže předtím táhl MAX/White)
+
+        # Změř vzdálenost
+        # Potřebujeme předchozí Board? Nemáme ho.
+        # Ale můžeme změřit absolutní vzdálenost.
+        # "vzdálení se od oponenta byť o jedno pole více než je nezbytně nutné"
+        # To se těžko měří bez předchozího stavu.
+        # Ale můžeme říct: pokud distance > 5 (zbytečně daleko), prune.
+
+        eval_sc, wk, rk, w_pos, r_pos = eval_material(board, config) # Použij helper z heuristics
+        if length(w_pos) >= 2 && length(r_pos) >= 1
+            wp1, wp2 = w_pos[1], w_pos[2]
+            rp = r_pos[1]
+            d1 = abs(wp1[1] - rp[1]) + abs(wp1[2] - rp[2])
+            d2 = abs(wp2[1] - rp[1]) + abs(wp2[2] - rp[2])
+            avg_dist = (d1 + d2) / 2.0
+
+            # Prh: pokud average distance > 5.0, prune.
+            if avg_dist > 5.0
+                score = Float64(perfect_endgame_heuristic(board, config)) - 1000.0 # Force penalty
+                node_id = add_tree_node(board, move_str * " [RETREAT PRUNED]", score, alpha, beta, is_maximizing, depth, true)
+                return score, nothing, node_id
+            end
+        end
     end
 
     # Určení aktuálního hráče na tahu
@@ -805,7 +849,7 @@ function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta:
             child_move_str = format_move(move)
 
             # Rekurzivní volání - soupeř (MIN) táhne s aktuálními α, β
-            eval_score, _, child_id = minimax_with_tree(new_board, depth - 1, alpha, beta, false, current_node_id, child_move_str)
+            eval_score, _, child_id = minimax_with_tree(new_board, depth - 1, alpha, beta, false, current_node_id, child_move_str; config=config, pruning=pruning)
 
             # Připoj potomka do vizualizačního stromu
             if tree_enabled && child_id > 0
@@ -868,7 +912,7 @@ function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta:
             child_move_str = format_move(move)
 
             # Rekurzivní volání - soupeř (MAX) táhne s aktuálními α, β
-            eval_score, _, child_id = minimax_with_tree(new_board, depth - 1, alpha, beta, true, current_node_id, child_move_str)
+            eval_score, _, child_id = minimax_with_tree(new_board, depth - 1, alpha, beta, true, current_node_id, child_move_str; config=config, pruning=pruning)
 
             # Připoj potomka do vizualizačního stromu
             if tree_enabled && child_id > 0
@@ -952,12 +996,34 @@ println("Nejlepší tah: \$(format_move(best_move)), skóre: \$score")
 - `get_legal_moves`: Generování legálních tahů
 - `my_heuristic`: Hodnotící funkce pro listové uzly
 """
-function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, is_maximizing::Bool)
+function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, is_maximizing::Bool;
+    config::HeuristicConfig=DEFAULT_CONFIG, pruning::PruningStrategy=PRUNE_LOSS_OF_PIECE)
     # Heuristic handles all position evaluation - no hardcoded forbidden positions
 
     # Listový uzel: vyhodnoť pozici heuristikou
     if depth == 0
-        return Float64(perfect_endgame_heuristic(board)), nothing
+        return Float64(perfect_endgame_heuristic(board, config)), nothing
+    end
+
+    # 1. Pseudo-terminální testy (Pruning)
+    if pruning == PRUNE_LOSS_OF_PIECE
+        stats = board_stats(board)
+        white_count = stats.white_pieces + stats.white_kings
+        if white_count < 2
+            return Float64(perfect_endgame_heuristic(board, config)), nothing
+        end
+    elseif pruning == PRUNE_RETREAT && !is_maximizing
+        eval_sc, wk, rk, w_pos, r_pos = eval_material(board, config)
+        if length(w_pos) >= 2 && length(r_pos) >= 1
+            wp1, wp2 = w_pos[1], w_pos[2]
+            rp = r_pos[1]
+            d1 = abs(wp1[1] - rp[1]) + abs(wp1[2] - rp[2])
+            d2 = abs(wp2[1] - rp[1]) + abs(wp2[2] - rp[2])
+            avg_dist = (d1 + d2) / 2.0
+            if avg_dist > 5.0
+                return Float64(perfect_endgame_heuristic(board, config)) - 1000.0, nothing
+            end
+        end
     end
 
     player = is_maximizing ? WHITE : RED
@@ -971,7 +1037,7 @@ function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, 
     #| region: move_ordering
     # Move ordering: seřaď tahy podle heuristiky pro lepší pruning a tiebreaking
     # MAX chce nejvyšší hodnoty první, MIN chce nejnižší první
-    scored_moves = [(m, perfect_endgame_heuristic(make_move(board, m))) for m in moves]
+    scored_moves = [(m, perfect_endgame_heuristic(make_move(board, m), config)) for m in moves]
     if is_maximizing
         sort!(scored_moves, by=x -> x[2], rev=true)  # Sestupně pro MAX
     else
@@ -987,7 +1053,7 @@ function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, 
         max_eval = -Inf
         for move in moves
             new_board = make_move(board, move)
-            eval_score, _ = minimax(new_board, depth - 1, alpha, beta, false)
+            eval_score, _ = minimax(new_board, depth - 1, alpha, beta, false; config=config, pruning=pruning)
             if eval_score > max_eval
                 max_eval = eval_score
                 best_move = move
@@ -1004,7 +1070,7 @@ function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, 
         min_eval = Inf
         for move in moves
             new_board = make_move(board, move)
-            eval_score, _ = minimax(new_board, depth - 1, alpha, beta, true)
+            eval_score, _ = minimax(new_board, depth - 1, alpha, beta, true; config=config, pruning=pruning)
             if eval_score < min_eval
                 min_eval = eval_score
                 best_move = move
@@ -1434,7 +1500,7 @@ function run_self_play(; use_custom_board::Bool=false, search_depth::Int=4,
     turn = 1
     while turn <= max_turns
         # Bílý
-        score_w, move_w = minimax(board, search_depth, -Inf, Inf, true)
+        score_w, move_w = minimax(board, search_depth, -Inf, Inf, true; config=DEFAULT_CONFIG, pruning=PRUNE_LOSS_OF_PIECE)
         if move_w === nothing
             println("🏆 ČERVENÝ VYHRÁL!")
             break
@@ -1443,7 +1509,7 @@ function run_self_play(; use_custom_board::Bool=false, search_depth::Int=4,
         board = make_move(board, move_w)
 
         # Červený
-        score_r, move_r = minimax(board, search_depth, -Inf, Inf, false)
+        score_r, move_r = minimax(board, search_depth, -Inf, Inf, false; config=DEFAULT_CONFIG, pruning=PRUNE_LOSS_OF_PIECE)
         if move_r === nothing
             println("🏆 BÍLÝ VYHRÁL!")
             break

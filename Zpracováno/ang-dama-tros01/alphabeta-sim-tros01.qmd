@@ -406,6 +406,44 @@ kde $d_{\min}, d_{\max}$ jsou Manhattanské vzdálenosti dvou bílých králů o
 ```
 
 ---
+
+## 8. Ablační studie
+
+Pro ověření vlivu jednotlivých komponent heuristiky a strategií prořezávání byla provedena série ablačních experimentů. Experimenty byly spuštěny na zadané pozici (2 bílí králové vs 1 červený král) se hloubkou prohledávání 6 a limitem 40 půltahů.
+
+### Výsledky experimentů
+
+| Experiment | Výsledek | Tahy | Uzly (celkem) | Popis |
+|---|---|---|---|---|
+| **Baseline** | DRAW | 40 | 39033 | Plná heuristika (`perfect_endgame_heuristic`) + LossOfPiece pruning |
+| **Pruning_None** | DRAW | 40 | 42897 | Plná heuristika bez jakéhokoliv prořezávání (kromě $\alpha$-$\beta$) |
+| **Pruning_Retreat** | DRAW | 40 | 41525 | Plná heuristika s agresivním prořezáváním při ústupu |
+| **No_Material** | DRAW | 40 | 39033 | Bez materiálové složky (pouze poziční hodnocení) |
+| **No_Cornering** | DRAW | 40 | 40894 | Bez bonusu za vytlačení soupeře z centra |
+| **No_Coordination** | DRAW | 40 | 36771 | Bez bonusu za koordinaci králů |
+| **No_Mobility** | DRAW | 40 | 37694 | Bez hodnocení mobility soupeře |
+| **No_RetreatPenalty** | DRAW | 40 | 35750 | Bez penalizace za zbytečný ústup |
+| **No_Net** | **WHITE** | **9** | **7435** | **Bez diagonální sítě (Net Formation)** |
+| **No_Attack** | DRAW | 40 | 38113 | Bez bonusu za přímé sousedství (útok) |
+| **No_CornerControl** | DRAW | 40 | 41828 | Bez bonusu za kontrolu dvojitého rohu |
+
+### Analýza výsledků
+
+1.  **Vliv „Net Formation“ ($V_{\text{net}}$):**
+    *   Nejzajímavějším výsledkem je, že **vypnutí komponenty $V_{\text{net}}$ (diagonální síť) vedlo k okamžité výhře v 9 tazích**.
+    *   To naznačuje, že v této specifické koncovce (2v1 na malé desce) snaha o udržení rigidní diagonální formace („Net“) **bránila** králům v efektivním útoku a uzavření soupeře.
+    *   Bez této komponenty se králové mohli pohybovat volněji a využít ostatní principy (Safety Zone, Mobility, Cornering) k rychlému vítězství.
+
+2.  **Efektivita prořezávání (Pruning):**
+    *   `Baseline` (LossOfPiece) prozkoumal **39 033 uzlů**, zatímco `Pruning_None` prozkoumal **42 897 uzlů**.
+    *   To potvrzuje, že identifikace pseudo-terminálních stavů (ztráta figury) ušetřila přibližně **9 %** výpočetního času, aniž by změnila výsledek hry (v baseline konfiguraci).
+
+3.  **Význam ostatních komponent:**
+    *   Ostatní ablace (No_Cornering, No_Mobility atd.) vedly ke stejnému výsledku jako Baseline (remíza v limitu 40 tahů), což naznačuje, že v přítomnosti problematické $V_{\text{net}}$ složky neměly samy o sobě rozhodující vliv na prolomení remízy.
+
+**Závěr:** Pro optimální výkon v této koncovce je doporučeno **deaktivovat** nebo výrazně přeformulovat komponentu $V_{\text{net}}$, která se ukázala jako kontraproduktivní.
+
+---
 <!---->
 <!-- # Prezentace výsledků simulace v Quarto -->
 <!---->
