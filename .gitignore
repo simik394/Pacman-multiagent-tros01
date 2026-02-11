@@ -7,3 +7,4 @@ __pycache__/
 *.pyc
 __atomic_candidate.pdf
 _staging/
+repomix**
