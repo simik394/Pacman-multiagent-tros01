@@ -1,26 +1,11 @@
 ---
 title: "Srovnani Evaluacnich Funkci"
-subtitle: "my_heuristic vs optimal_endgame vs perfect_endgame"
 author: "AI1 Projekt"
-date: today
-format:
-  pdf:
-    documentclass: article
-    papersize: a4
-    fontsize: 10pt
-    geometry:
-      - margin=2cm
-    colorlinks: true
-    toc: true
-    toc-depth: 2
-    number-sections: true
-    highlight-style: github
+date: "2026-02-10"
 execute:
   eval: false
   echo: true
 ---
-
-\newpage
 
 # Prehled
 
@@ -44,9 +29,9 @@ Používáme Quarto extension `include-code-files` s region markers.
 
 Pro podrobnosti viz samostatne dokumenty:
 
-- [myHer-val-func-docs.pdf](myHer-val-func-docs.pdf) - Vseobecna heuristika
-- [optimalHer-val-func-docs.pdf](optimalHer-val-func-docs.pdf) - Hardcoded endgame
-- [perfectHer-val-func-docs.pdf](perfectHer-val-func-docs.pdf) - Obecne principy
+- [myHer-val-func-docs.qmd](myHer-val-func-docs.qmd) - Vseobecna heuristika
+- [optimalHer-val-func-docs.qmd](optimalHer-val-func-docs.qmd) - Hardcoded endgame
+- [perfectHer-val-func-docs.qmd](perfectHer-val-func-docs.qmd) - Obecne principy
 
 \newpage
 
@@ -231,3 +216,5 @@ Pro podrobnosti viz samostatne dokumenty:
 | Depth robustnost | D5: Ne | D5: Ano, D6: Ne | D5+D6: Ano |
 
 **Doporuceni:** Pro produkci pouzit `perfect_endgame_heuristic`.
+
+

@@ -153,7 +153,7 @@ Kricka optimalizace pro reseni horizon effectu:
 
 # ── Nalezeni posledniho simulation runu ──────────────────────────────
 cur_doc_dir = pwd()  # Quarto nastavi CWD na adresar dokumentu
-sim_base_path = joinpath(cur_doc_dir, "out", "simulation_outputs")
+sim_base_path = joinpath(cur_doc_dir, "..", "out", "simulation_outputs")
 run_dirs = filter(d -> startswith(d, "run_"), readdir(sim_base_path))
 latest_run = sort(run_dirs)[end]
 active_run_path = joinpath(sim_base_path, latest_run)
@@ -270,7 +270,7 @@ println("\n> $result_str")
 include(joinpath(cur_doc_dir, "render_search_trees.jl"))
 
 # Vystupni adresar pro renderovane stromy
-tree_out_dir = joinpath(cur_doc_dir, "out", "rendered_trees")
+tree_out_dir = joinpath(cur_doc_dir, "..", "out", "rendered_trees")
 mkpath(tree_out_dir)
 
 # Mapovani tahu na adresare simulace
@@ -491,7 +491,7 @@ Pro produkcni nasazeni je `perfect_endgame_heuristic` doporucena volba.
 #| output: asis
 
 # Load log file
-log_path = joinpath(cur_doc_dir, "out", "verification", "verification_log.txt")
+log_path = joinpath(cur_doc_dir, "..", "out", "verification", "verification_log.txt")
 
 if isfile(log_path)
     lines = readlines(log_path)
@@ -571,3 +571,6 @@ The final verification run confirms the fix:
 - **Score Differential**: **+490.0** favoring the optimal move.
 
 The simulation now correctly plays out the full winning sequence: `14-9` -> `1-5` -> `10-14` -> `5-1` -> `9-5` -> `1-6` -> `5-1` -> `6-2` -> `14-18` (Winning Position).
+
+
+

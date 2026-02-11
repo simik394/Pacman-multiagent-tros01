@@ -6,5 +6,5 @@ run_assignment_simulation(
     search_depth=6,
     num_turns=15, # Increased turns to ensure completion
     save_trees=true,
-    output_base_dir="simulation_outputs"
+    output_base_dir=joinpath("out", "simulation_outputs")
 )

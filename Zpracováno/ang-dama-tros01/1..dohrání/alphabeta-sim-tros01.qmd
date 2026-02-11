@@ -8,567 +8,214 @@ format:
     colorlinks: true
     header-includes:
       - '\usepackage{caption}'
-    include-before-body: /home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/titlepage.tex
+    include-before-body: "titlepage.tex"
     number-sections: true
     toc: true
+execute:
+  echo: false
+  warning: false
+jupyter: julia-1.12
 ---
 {{<pagebreak>}}
 
-# Manuální dohrání
+# Manuální dohrání a Analýza koncovky
+
+Tato kapitola dokumentuje vývoj a ladění heuristické funkce pro koncovku **2 králové proti 1 králi**. Cílem bylo vytvořit agenta, který dokáže spolehlivě a efektivně (v minimálním počtu tahů) zvítězit proti optimálně hrajícímu soupeři.
 
 **Vizualizace herního stromu (Obrázek `\ref{fig-assignment}`{=latex} na titulní straně)**
 
-Obrázek na úvodní stránce ilustruje princip prohledávání herního prostoru pomocí algoritmu Minimax s Alpha-Beta ořezáváním.
-- **MAX uzly (Zelené/Fialové)**: Představují stavy, kde je na tahu **MAX** (hráč, který se snaží maximalizovat své skóre = my). Vítězné stavy jsou často označeny zeleně.
-- **MIN uzly (Červené/Azurové)**: Představují stavy, kde je na tahu **MIN** (soupeř, který se snaží minimalizovat naše skóre).
-- **Šedé/přerušované linie (Dashed)**: Značí větve, které byly **oříznuty** (pruned) díky podmínce $\alpha \ge \beta$.
-- **Hodnoty v uzlech**: Čísla uvnitř uzlů reprezentují heuristické ohodnocení dané pozice. Algoritmus propaguje tyto hodnoty zdola nahoru.
+Obrázek na úvodní stránce ilustruje princip prohledávání herního prostoru pomocí algoritmu Minimax s Alpha-Beta ořezáváním:
+- **MAX uzly (Zelené/Fialové)**: Stavy, kde maximalizujeme naše skóre.
+- **MIN uzly (Červené/Azurové)**: Stavy, kde soupeř minimalizuje naše skóre.
+- **Ořezávání (Pruning)**: Šedé větve nebyly prozkoumány, protože algoritmus matematicky dokázal, že nemohou vylepšit výsledek.
 
-## Předpoklady pro vítězstí 
+## Klíčové momenty a Strategie
 
-### Nedostat se do situace 1v1 {#sec-BOZP}
-Jelikož se jedná o koncovku, je zcela klíčové, aby si bílý udržel o kámen více. 
+V této sekci konsolidujeme uživatelské požadavky a pozorování z průběhu vývoje. Pro úspěšné dohrání partie je nutné pochopit dynamiku koncovky.
 
-Pokud by se tak nestalo, bílý by se dopustil chyby a nechal by si sebrat jediný další kámen, byla by ztracena jeho možnost kontrolovat hru @sec-kontrola-hry.
+### Strategické imperativy
 
-### Vytlačit červeného z dvojitého rohu 
-Pokud červeného nepřinutím opustit bezpečí dvojitého rohu, nemám jako bílý šanci na výhru, protože se dvěma kameny mohu buď zablokovat jednu ústupovou cestu @fig-block-partial-double-corner, nebo si prakticky znemožnit výhru @fig-lose-stone-nextto-double-corner. Nikdy tedy nemohu s pouze dvěma kameny dosáhnout omezení červeného na žádné možné pohyby, protože takové pokusy nezbytně povedou do situace 1v1. 
+1.  **Zachování přesily (2:1)**: Absolutní prioritou je nedostat se do situace 1:1. Výměna krále za krále vede okamžitě k remíze.
+2.  **Vytlačení z centra**: Soupeřův král se snaží držet v centru (nejsilnější pozice). Naším cílem je vytlačit ho na okraj.
+3.  **Past (The Net)**: Samotné zatlačení nestačí. Je nutné vytvořit kooperativní formaci ("síť"), která soupeři postupně odebere všechny bezpečné tahy.
 
-Zbývá tedy pouze varianta donutit červeného do jiné pozice kde toto znemožnění pohybu půjde, nebo do jiné pozice kdy se vzdálí z bezpečí rohu do herního prostoru a umožní tak svoje přeskočení a výslednou prohru. 
+### Role králů: Kotva a Operátor
 
-Každopádně vytlačení červeného z jeho pevnosti je nezbytný první krok k výhře.
+Během analýzy jsme identifikovali dělbu rolí mezi našimi králi, kterou heuristika musí podporovat:
+-   **Kotva (Anchor)**: Drží klíčovou pozici (obvykle u rohu) a omezuje únikové cesty soupeře. Je statický.
+-   **Operátor (Operator)**: Aktivně manévruje, zmenšuje prostor a připravuje finální útok.
 
-::: {#fig-sidebyside layout-ncol=2}
+***
 
-![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=safecornerblock|Bezpečně zablokovaná cesta z dvojitého rohu]]{#fig-block-partial-double-corner}
+## Detailní rozbor heuristiky (Periodic Blocks)
 
-!![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=doublecornerblunder|Nedostatečné zablokování => 1v1 v lepším případě]]{#fig-lose-stone-nextto-double-corner}
+V této části rozebíráme jednotlivé komponenty hodnotící funkce. Každá komponenta je prezentována ve struktuře: **Požadavek $\to$ Diskuze $\to$ Matematika $\to$ Implementace**.
 
-Analýza možností v stavu 2v1 ve dvojitém rohu
+### 1. Materiál a Bezpečnost (1v1 Protection)
+
+#### Požadavek
+Zabránit za každou cenu výměně, která by vedla k remíze (1 vs 1).
+
+#### Diskuze
+V běžné střední hře je výměna 1:1 přijatelná. V koncovce 2:1 je to fatální chyba. Heuristika musí vnímat stav 1:1 jako "zakázaný" (loss condition).
+
+#### Matematika
+$$
+h_{material} = \begin{cases} 
+-\infty & \text{pokud } N_{my}=1 \land N_{opp}=1 \\
+w_{mat} \cdot (N_{my} - N_{opp}) & \text{jinak}
+\end{cases}
+$$
+
+#### Implementace
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_1v1" dedent="true"}
+```
+
+### 2. Pozice a Kontrola (Red Position)
+
+#### Požadavek
+Donutit soupeře opustit bezpečné "dvojité rohy" (pole 1, 5, 28, 32).
+
+#### Diskuze
+Červený král v rohu je v bezpečí. Nemůžeme ho vyhodit, pokud neudělá chybu. Musíme ho aktivně "vytlačit" nebo "vykouřit" tím, že mu obsadíme sousední pole a donutíme ho k tahu (tzv. *zugzwang*).
+
+#### Implementace
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_red_pos" dedent="true"}
+```
+
+### 3. Koordinace (Coordination & Squeeze)
+
+#### Požadavek
+Králové musí spolupracovat. Jeden sám nic nezmůže.
+
+#### Diskuze
+Zavedli jsme koncept "optimální vzdálenosti". Pokud jsou naši králové příliš daleko od sebe (>6 polí), nemohou si krýt záda. Pokud jsou příliš blízko (1 pole), překážejí si. Ideální vzdálenost je 2-4 pole.
+
+#### Matematika
+Heuristika uděluje bonus $w_{coord}$, pokud:
+$$ 2 \le dist(K_1, K_2) \le 4 $$
+
+#### Implementace
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_coordination" dedent="true"}
+```
+
+### 4. Past a Síť (Net Formation)
+
+#### Požadavek
+Vytvořit formaci, ze které není úniku.
+
+#### Diskuze
+Toto je nejpokročilejší část heuristiky. Detekujeme, který král je blíže k rohu ("Kotva") a od druhého ("Operátor") vyžadujeme, aby se pohyboval po diagonále **směrem od rohu**, čímž uzavírá síť. Bez této složky by agent soupeře jen "honil" kolem dokola.
+
+#### Implementace
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_net" dedent="true"}
+```
+
+### 5. Prevence patu a ústupu (Retreat Penalty)
+
+#### Požadavek
+Hra musí konvergovat k cíli. Nesmíme dovolit nekonečné manévrování.
+
+#### Diskuze
+Občas se stane, že AI "nevidí" cestu k výhře v rámci horizontu (depth limit) a rozhodne se "čekat" (ustoupit). Abychom tomu předešli, penalizujeme stavy, kde se průměrná vzdálenost k soupeři zvyšuje.
+
+#### Implementace
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_retreat" dedent="true"}
+```
+
+***
+
+## Analýza Výsledků a Parametry
+
+Následující tabulka shrnuje váhy použité ve finální verzi heuristiky (`perfect_endgame_heuristic`). Tyto hodnoty byly laděny pomocí ablačních studií.
+
+```julia
+#| label: tbl-params
+#| tbl-cap: "Parametry heuristické funkce (načteno z kódu)"
+#| output: asis
+
+include("/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl")
+using Markdown
+
+# Vytvoření tabulky z konstanty PERFECT_WEIGHTS
+key_map = Dict(
+    :MATERIAL => "Materiál (Základ)",
+    :WIN => "Výhra (Infinity)",
+    :SAFETY_RED => "Penalta: Červený v bezpečí",
+    :ACTIVE_RED => "Bonus: Červený aktivní",
+    :COORD => "Koordinace králů",
+    :SQUEEZE => "Sevření (Squeeze)",
+    :RETREAT_MAX => "Penalta: Ústup (Max)",
+    :NET => "Past (Net Formation)",
+    :CROWDING => "Přeplnění (Crowding)",
+    :MOBILITY => "Mobilita soupeře"
+)
+
+println("| Komponenta | Váha | Význam |")
+println("|---|---|---|")
+for (k, desc) in sort(collect(key_map), by=x->string(x[1]))
+    val = PERFECT_WEIGHTS[k]
+    println("| **$desc** | `$val` | Koeficient v lineární kombinaci |")
+end
+```
+
+### Pozorování: Horizont Efekt
+
+Při hloubce prohledávání 6 (3 tahy každého) se stále setkáváme s "Horizont efektem". Agent může odsunout nevyhnutelnou prohru o tah dál, i když to z dlouhodobého hlediska nic neřeší. 
+
+> **Řešení**: Zavedení "pseudo-terminálních" stavů (např. penalizace za ústup), které heuristicky simulují "blížící se konec", i když není přímo vidět ve stromu.
+
+***
+
+## Průběh hry (Manuální analýza)
+
+Následující sekvence snímků (z Excalidraw) vizuálně demonstruje úspěšné uplatnění výše popsaných principů v praxi.
+
+::: {#fig-game-phases layout-ncol=2}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=6plydeepbutstillstarting|Fáze 1 - Horizont efekt - AI vidí hrozbu, ale je těsně za horizontem.]]{#fig-phase1}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=safecornerblock|Fáze 2a - Safe Corner Block - Úspěšné zablokování úniku.]]{#fig-phase2a}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=doublecornerblunder|Fáze 2b - Ukázka chyby (Blunder) - Červený uniká.]]{#fig-phase2b}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=decisivemoment1|Fáze 3 - Vytlačení z rohu (Pushing).]]{#fig-phase3}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=expected-optimal-ply1|Fáze 4 - Formování pasti (Net building) - Kotva a Operátor.]]{#fig-phase4}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=needlesstodivedeeper|Fáze 5 - Vynucené tahy (Forced Moves).]]{#fig-phase5}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=insta-lost|Fáze 6 - Finální past (Impossible to escape).]]{#fig-phase6}
+
+![[/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/1..dohrání/minimaxalphabeta-assignment.excalidraw.md#^frame=forcedending|Fáze 7 - Vynucený konec (Forced Ending).]]{#fig-phase7}
+
+Manuální analýza klíčových fází hry
 :::
 
-{{<pagebreak>}}
 
-### Kontrola hry {#sec-kontrola-hry}
-Vychozí pozice bílého představuje dokonalý stav hry k tomu aby mohl být červený efektivně dotlačen do situace kdy mu nezbude jiná volba než smrt. Efektivitou postupu dotlačení je v tomto případě myšleno vynucení takových situací pro červeného kdy jeho jediné dostupné tahy budou představovat buďto smrt, nebo tah který vede směrem do pasti která představuje výhru pro bílého @fig-seconds-before-WW.
+***
 
-![[minimaxalphabeta-assignment.excalidraw.md#^frame=forcedending|Tři tahy před výhrou bílého]]{#fig-seconds-before-WW fig-pos="H"} 
+## Případová studie: Rozhodování v Hloubce 6
 
-## Klíčové momenty koncovky
+Během ladění heuristiky jsme narazili na kritickou situaci, kde AI v hloubce 6 (3 tahy každého) váhala mezi dvěma tahy. Tato situace krásně ilustruje, jak jemné změny v definici metriky ovlivňují chování agenta.
 
-### 1. Volba úvodního tahu
+**Konflikt:**
+- **Optimální tah (14-9)**: Vede přímo k obsazení klíčového bodu pro sestrojení pasti.
+- **Suboptimální tah (10-7)**: Vypadá bezpečně a udržuje vzdálenost, ale v reálu ztrácí tempo a dává soupeři šanci uniknout.
 
-<!-- V počáteční pozici (Bílé: 10, 14; Červená: 1) má bílý několik možností. Klíčovým momentem je volba tahu, který **okamžitě omezuje prostor** červeného krále. Náhodný tah by mohl umožnit červenému uniknout do "dvojitého rohu" (pole 5, 1, 6, 9,...), odkud je těžší ho vyhnat.  -->
-<!-- Simulace ukazuje, že optimální tahy směřují k obsazení centra šachovnice (políčka jako 14, 15, 18, 19), což efektivně rozděluje herní plochu a nutí červeného k krajům. -->
+Původní heuristika ohodnotila oba tahy téměř stejně. Důvodem byla **Manhattanská vzdálenost**, která v dámě (kde se chodí po diagonálách) měřila vzdálenost $\Delta x + \Delta y$ nepřesně. Pro krále jsou pole 9 a 2 topologicky stejně vzdálená (Vzdálenost 2), i když pole 9 je strategicky mnohem cennější.
 
-Každopádně tento problém se dá prakticky redukovat na @sec-BOZP a @sec-kontrola-hry. 
+**Řešení:**
+Přechod na **Čebyševovu vzdálenost** ($\max(|\Delta x|, |\Delta y|)$). Tato metrika správně identifikovala, že pole 5 (cíl) je z pole 9 dosažitelné za 1 krok (Vzdálenost 1), zatímco z pole 2 je to stále daleko.
 
-### 2. Odmítnutí výměny (The Exchange Trap)
+**Výsledek po úpravě:**
+- **Optimální tah (14-9)**: Skóre **4160.0** (Aktivní bonus za přiblížení).
+- **Suboptimální tah (10-7)**: Skóre **3670.0** (Bez bonusu).
+- **Rozdíl**: **+490.0** bodů jasně preferuje vítěznou variantu.
 
+Tato změna umožnila agentovi najít vítěznou sekvenci: `14-9` $\to$ `1-5` $\to$ `10-14` $\to$ `5-1` $\to$ `9-5` $\to$ `1-6` $\to$ `5-1` $\to$ `6-2` $\to$ `14-18`.
 
+***
 
-### 3. Koordinovaný útok (The Squeeze)
-
-<!-- V závěrečné fázi (v canvasu stavy kolem `MAX3b` a navazujících) dochází k "sevření". -->
-
-Zde již nejde o prosté přibližování, ale o geometrickou spolupráci dvou bílých dam.
-Jedna dáma typicky funguje jako "kotva" nebo "blokátor", omezující únikové cesty (např. diagonálu), zatímco druhá dáma "operuje" a postupně zmenšuje manévrovací prostor červeného. Tento moment vyžaduje přesný výpočet na několik tahů dopředu, protože jediná chyba (uvolnění diagonály) by mohla zmařit desítky tahů práce.
-
-<!-- V této fázi se heuristika mění z "vzdálenosti k soupeři" na "počet dostupných tahů soupeře" (mobility), s cílem minimalizovat je na nulu. -->
-
-
-### Pseudo-terminální stavy (Ořezávání 1v1)
-Vzhledem k zadání a pravidlům koncovky je stav, kdy bílému zbude pouze jedna dáma (1v1), považován za **prohru** (resp. remízu, což je pro bílého neúspěch).
-
-<!-- Z praktického hlediska simulace je tedy zbytečné prohledávat strom hlouběji, jakmile nastane situace 1v1. -->
-<!-- - **Implementace**: Pokud uzel stromu (i v hloubce $d < 6$) reprezentuje stav 1v1, algoritmus tento uzel označí jako *pseudo-terminální*. -->
-<!-- - **Hodnota**: Takovému uzlu je okamžitě přiřazena hodnota $-\infty$ (nebo velmi nízká konstanta), což zajistí, že MAX hráč (bílý) se této větvi vyhne, pokud má jinou možnost. -->
-<!-- - **Efekt**: Toto doménově specifické ořezávání výrazně zmenšuje stavový prostor, protože eliminuje nutnost propočítávat prohrané varianty až do maximální hloubky. -->
-
-![[Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/minimaxalphabeta-assignment.excalidraw.md#^frame=6plydeepbutstillstarting|Stav 6 půltahů hluboko ve větvi kde byl na začátku zvolen jeden půltah bíleho směrem k poli 32 a nikoliv ve směru pronásledování oponenta v rohu opačnem.]]{#fig-6ply-deep-but-still-starting}
-
-
-
-
-# Simulace minmax algoritmu s αβ prořezáváním
-
-## Ply 1
-### depth 1
-
-
-### depth 2
-# Diskuze
-
-## Postřehy ke kompetencím LLMs
-Jak @gemini tak @claude narážejí při uvažování o herním prostoru jako o poli 1-32 na limity "představivosti"? Respektive běžně se dopouštějí halucinací sousednosti jednotlivých polí, mezi kterými trojicemi je opravdu rovná diagonála a nikoliv třeba je tvar V (1,5,9) tudíž, jestli správně chápu pravidla, zda skok možný není. @gemini je v tomto tedy citelně slabší, nicméně to vlastně sedí do jeho, řekl bych profilu.
-
-Ani @claude nevykázal žádné výraznější zábrany v hardcodování odměn za konkrétní stavy, což sice vedlo ke splnění požadavku na výhru bílého podle definovaného postupu, ale bylo zcela proti zadání, které vyžaduje obecnou funkci. Nicméně nejspíše šlo jen o skill/prompt/context issue a ne o systémové omezení LLM. Avšak kdyby takovým způsobem fungoval ve výchozím stavu, bylo by to příjemnější. 
-Jelikož pro @gemini jsou takovéto podvodné zkratky bohužel denní chleba, v jeho případě jsou striktní instrukce a kontrola implementace nutností.
-
-
----
-
-# Session 2026-02-08: Ladění Evaluační Funkce
-
-## Uživatelské požadavky
-
-### P1: Obecné principy místo hardcoded pozic
-> "Nechci hardcoded pozice. Chci obecné principy, které fungují vždy."
-
-- Evaluační funkce by neměla obsahovat specifické sekvence tahů
-- Místo toho by měla používat obecné strategické principy
-- Cíl: heuristika, která funguje pro libovolnou startovní pozici
-
-### P2: Viditelnost pozice červeného v hodnotě
-> "Red being in the corner has to be visible in the value - either by penalizing Red's presence or rewarding if not. Optionally both."
-
-- Pokud je červený v bezpečné zóně (dvojitý roh): **penalizovat**
-- Pokud je červený mimo bezpečnou zónu: **bonifikovat**
-- Toto zajistí, že AI aktivně tlačí červeného pryč z rohu
-
-### P3: Kontextově závislý bonus za kontrolu rohu
-> "Enhance the evaluation for the corner to behave differently if there is already one stone present."
-
-- Bonus za přiblížení se k rohu by měl platit **pouze pro prvního krále**
-- Jakmile jeden král roh kontroluje, druhý by měl dělat něco jiného (diagonální spread)
-- Zabraňuje "crowdingu" - oba králové příliš blízko rohu
-
-### P4: Penalizace zbytečného ústupu (pseudo-terminál)
-> "Can we penalize or completely disqualify moves which run away from the opponent and give him more freedom than necessary?"
-
-- Tahy kde se bílý vzdálí od červeného více než je nutné jen prodlužují hru
-- Tyto stavy lze označit jako **pseudo-terminální** (velmi nízká hodnota)
-- Optimální vzdálenost pro útok je 2-4, vzdálenost >5 je zbytečná
-
-## Klíčová pozorování
-
-### O1: Horizon Effect při různých hloubkách
-- Heuristika může fungovat správně při depth=5, ale selhávat při depth=6
-- Příčina: Minimax na sudé hloubce končí tahem MIN (červeného)
-- Řešení: Move ordering + silnější diferenciace heuristických hodnot
-
-### O2: Tiebreaking při minimax
-
-V základní implementaci minimaxu je výběr nejlepšího tahu **deterministický** a závisí striktně na pořadí generování tahů. Funkce `get_legal_moves` prochází desku systematicky (od shora dolů, zleva doprava). Pokud existuje více tahů se shodným maximálním ohodnocením – což je v koncovkách běžné, kdy mnoho tahů udržuje stejnou "winning" výhodu – algoritmus vybere vždy ten **první nalezený** (`eval > max_eval`, nikoli `>=`).
-
-**Důsledky:**
-
-1.  **Top-Left Bias**: AI systematicky preferuje tahy kameny s nižším indexem (horní část desky). V situaci, kdy má na výběr posunout levého nebo pravého krále se stejným efektem, pohne tím s nižším číslem políčka.
-2.  **Předvídatelnost**: Bez náhodného prvku (tiebreaking) bude AI v identické situaci reagovat vždy stejně. To je výhodné pro ladění, ale nevýhodné pro hru proti člověku.
-3.  **Neefektivita prořezávání**: Pokud jsou nejlepší tahy generovány náhodou až na konci seznamu, alpha-beta algoritmus musí prohledat většinu stromu.
-
-**Řešení (Best Practices):**
-- **Move Ordering**: Seřadit tahy podle jejich okamžité heuristické hodnoty *před* vstupem do rekurze. Tím se zajistí, že nejslibnější tahy jsou prozkoumány jako první, což maximalizuje šanci na brzký $\beta$-cutoff (oříznutí).
-- **Random Noise**: Přičtení zanedbatelného náhodného čísla ($\epsilon \in [0, 10^{-5}]$) k hodnotě listu. To rozbíjí determinismus v rovnocenných pozicích a činí chování AI přirozenějším ("human-like").
-
-### O3: Operátor vs Kotva
-- **Kotva**: Král, který kontroluje roh (pole 1)
-- **Operátor**: Král, který vytváří squeeze formaci z diagonály
-- Jakmile kotva drží pozici, operátor musí jít **diagonálně pryč** (ne k rohu!)
-- Klíčové pozice operátora: pole 18, 15, 22 (row≥4, col≥4)
-
-## Formální definice hodnotící funkce {#sec-formalni-definice}
-
-### Notace
-
-Nechť $s$ je stav hry. Definujeme:
-
-- $W = \{w_1, w_2\}$ — množina pozic bílých králů (řádek, sloupec)
-- $R = \{r\}$ — pozice červeného krále
-- $d(a, b) = |a_r - b_r| + |a_c - b_c|$ — Manhattanská vzdálenost
-- $c = (4.5,\; 4.5)$ — střed desky
-- $\kappa = (1, 2)$ — dvojitý roh (safety zone)
-- $\mathcal{M}(s, \text{RED})$ — množina legálních tahů červeného ve stavu $s$
-
-### Celková hodnotící funkce
-
-Hodnota stavu $s$ pro koncovku 2 králové vs 1 král. Nejprve se aplikuje pravidlo oříznutí (@eq-1v1) — pokud $|W| = 1$, vrací se okamžitě $-99\,999$ bez dalšího vyhodnocení. Jinak:
-
-$$
-V(s) = V_{\text{mat}}(s) + V_{\text{corner}}(s) + V_{\text{squeeze}}(s) + V_{\text{coord}}(s) + V_{\text{mob}}(s) + V_{\text{retreat}}(s)
-$$ {#eq-V}
-
-kde jednotlivé komponenty jsou definovány níže. Všechny jsou **aditivní** — žádná z nich neořezává prohledávání.
-
-### 1. Materiál $V_{\text{mat}}$
-
-$$
-V_{\text{mat}}(s) = \sum_{p \in W} v(p) - \sum_{p \in R} v(p), \quad v(p) = \begin{cases} 100 & \text{je-li } p \text{ král} \\ 40 & \text{je-li } p \text{ pěšec} \end{cases}
-$$ {#eq-material}
-
-### 2. Oříznutí stavu 1v1 (Pruning Rule) {#sec-1v1-pruning}
-
-Stav 1v1 **není** komponentou hodnotící funkce — jedná se o **pravidlo oříznutí** (pruning rule) na úrovni prohledávání. Jakmile minimax narazí na uzel, kde $|W| = 1$, okamžitě vrací extrémně nízkou hodnotu a **neprohledává** dále. V kódu je to realizováno jako `return -99999.0` (early return, nikoli přičtení ke skóre).
-
-Formálně: Nechť $s$ je libovolný uzel prohledávacího stromu. Pak:
-
-$$
-\text{Pokud } |W(s)| = 1: \quad \texttt{return} \; V_{\text{term}} = -99\,999
-$$ {#eq-1v1}
-
-Tento stav je **pseudo-terminální** — algoritmus se chová, jako by uzel neměl potomky. Důvod: v koncovce 2v1 je ztráta kamene ekvivalentní strategické prohře, protože remíza (1v1 dvou králů) je pro bílého neúspěchem (viz @sec-BOZP).
-
-### 3. Cornering $V_{\text{corner}}$
-
-**Cíl:** Odměnit stavy, kde je červený král vytlačen z centra desky ke krajům. Na kraji desky má král maximálně 2 diagonální směry pohybu (vs. 4 v centru), což zmenšuje jeho manévrovací prostor.
-
-**Složky:**
-
-$$
-V_{\text{corner}}(s) = \underbrace{w_c \cdot d(r, c)}_{\text{základní bonus}} + \underbrace{B_{\text{edge}}(r)}_{\text{bonus za okraj}} + \underbrace{V_{\text{safety}}(r)}_{\text{safety zone}}
-$$ {#eq-cornering}
-
-kde:
-
-- $d(r, c)$ — Manhattanská vzdálenost pozice červeného $r$ od středu desky $c = (4.5, 4.5)$. Rozsah: $0$ (přesný střed) až $7$ (rohové pole). Čím větší, tím lépe pro bílého.
-- $w_c = 40$ — váha zvolena tak, aby cornering sám o sobě nepřevážil materiální výhodu ($v_{\text{king}} = 100$), ale aby rozdíl mezi centrem a krajem ($\Delta \approx 7 \times 40 = 280$) byl dostatečně velký na ovlivnění volby tahu.
-- $B_{\text{edge}}$ — diskrétní bonus za skutečné okrajové řádky/sloupce:
-
-$$
-B_{\text{edge}}(r) = 150 \cdot \bigl[\mathbb{1}_{r_{\text{row}} \in \{1,8\}} + \mathbb{1}_{r_{\text{col}} \in \{1,8\}}\bigr]
-$$
-
-Hodnota $150$ odpovídá přibližně $1.5 \times v_{\text{king}}$, protože umístění soupeře na samotný okraj je strategicky téměř tak cenné jako materiální převaha — soupeř má poloviční mobilitu.
-
-- $V_{\text{safety}}$ — bonifikace/penalizace za pozici vůči **dvojitému rohu** (safety zone = pole $\{1, 5\}$; resp. $\{28, 32\}$ pro opačnou stranu):
-
-$$
-V_{\text{safety}}(r) = \begin{cases} -600 & \text{pokud } r \in \{1, 5, 28, 32\} \quad (\text{R v bezpečí}) \\ +500 & \text{jinak} \quad (\text{R mimo bezpečí}) \end{cases}
-$$ {#eq-safety}
-
-Asymetrie $600/500$: penalta za bezpečí je záměrně vyšší než bonus za jeho opuštění, protože **zabránit vstupu** do rohu je strategicky důležitější než pouhé odměnění pobytu mimo něj.
-
-### 4. Squeeze — útočná blízkost $V_{\text{squeeze}}$
-
-**Cíl:** Odměnit stavy, kde se bílí králové přibližují k červenému a svírají ho z více stran.
-
-**Průměrná útočná vzdálenost** $\bar{d}_{\text{atk}}$ měří, jak „daleko" jsou bílí od soupeře:
-
-$$
-\bar{d}_{\text{atk}} = \frac{1}{|W|} \sum_{w_i \in W} d(w_i, r)
-$$ {#eq-avg-dist}
-
-kde $w_i$ jsou pozice bílých králů, $r$ je pozice červeného, a $d$ je Manhattanská vzdálenost.
-
-$$
-V_{\text{squeeze}}(s) = w_s \cdot (D_{\max} - \bar{d}_{\text{atk}}) + B_{\text{bracket}}(s)
-$$ {#eq-squeeze}
-
-kde:
-
-- $w_s = 60$ — váha sevření, zvolena tak, aby přiblížení o 1 pole ($\Delta = 60$) bylo menší než ztráta materiálu ($100$), ale dostatečné pro rozlišení tahů.
-- $D_{\max} = 6$ — maximální relevantní vzdálenost (polovina obvodu desky $8 \times 8$). Při $\bar{d}_{\text{atk}} = 6$ je bonus nulový, při $\bar{d}_{\text{atk}} = 1$ je bonus $5 \cdot 60 = 300$.
-
-**Bracketing bonus** $B_{\text{bracket}}$ odměňuje obklíčení — stav, kdy W svírají R z **opačných stran** (jeden nad, jeden pod; nebo jeden vlevo, jeden vpravo):
-
-$$
-B_{\text{bracket}} = \begin{cases} +200 & \text{pokud } (w_{1r} - r_r)(w_{2r} - r_r) < 0 \;\lor\; (w_{1c} - r_c)(w_{2c} - r_c) < 0 \\ 0 & \text{jinak} \end{cases}
-$$
-
-Test $(w_{1r} - r_r)(w_{2r} - r_r) < 0$ je negativní právě tehdy, když jeden W je **nad** R a druhý **pod** R (záporný součin = opačná znaménka).
-
-> **Poznámka k paradoxu blízkého sevření:** Bracketing sám o sobě negarantuje skok. Pokud jsou všechny tři kameny na jedné diagonále s R uprostřed, přeskočení není možné (v anglické dámě se skáče přes sousední pole). Tuto situaci však řeší minimax prohledávání — heuristika odmění sevření, ale konkrétní skok vyhodnotí až prohledávací strom na základě legálních tahů.
-
-### 5. Koordinace králů $V_{\text{coord}}$
-
-<!-- D: Úvahy o záchraně kamenů a kontextovém hodnocení ohrožení jsou relevantní pro obecnější heuristiku, ale pro koncovku 2v1 (kde je ohrožení minimální a cíl je čistě sevření) je jednoduchá metrika vzdálenosti dostatečná. -->
-
-Vzdálenost mezi spolupracujícími králi má optimum v rozmezí 2–4:
-
-$$
-d_{\text{ww}} = d(w_1, w_2)
-$$
-
-$$
-V_{\text{coord}}(s) = \begin{cases}
-+300 & \text{pokud } 2 \le d_{\text{ww}} \le 4 \\
-+100 & \text{pokud } d_{\text{ww}} = 1 \\
--100 & \text{pokud } d_{\text{ww}} \ge 5
-\end{cases}
-$$ {#eq-coordination}
-
-### 6. Mobilita soupeře $V_{\text{mob}}$
-
-Počet legálních tahů červeného přímo měří úspěšnost sevření:
-
-$$
-V_{\text{mob}}(s) = \begin{cases}
-+10\,000 & \text{pokud } |\mathcal{M}| = 0 \quad (\text{výhra — terminální stav}) \\
-+600   & \text{pokud } |\mathcal{M}| = 1 \\
-+300   & \text{pokud } |\mathcal{M}| = 2 \\
-+100   & \text{pokud } |\mathcal{M}| = 3 \\
-0      & \text{jinak}
-\end{cases}
-$$ {#eq-mobility}
-
-> **K otázce forced moves:** Stavy, kde má soupeř $k$ legálních tahů, ale $k-1$ z nich vede k bezprostřední prohře, **není nutné** ořezávat na úrovni heuristiky. Minimax tyto situace řeší přirozeně: MIN hráč (červený) zvolí jedinou „bezpečnou" variantu a prohrávající větve se prořežou přes alpha-beta. Mobilita $V_{\text{mob}}$ slouží jako **signál kvality pozice** — čím méně tahů soupeř má, tím blíže je k vítězství, bez ohledu na kvalitu těch tahů. Prohlášení za pseudo-terminální by bylo redundantní s tím, co minimax udělá sám.
-
-### 7. Penalta za ústup $V_{\text{retreat}}$
-
-Toto je **penalta** (aditivní odečet od skóre), nikoli pseudo-terminální stav. Na rozdíl od pravidla 1v1 (@eq-1v1), které **ukončuje prohledávání** větve (`return`), ústupová penalta je běžnou komponentou $V(s)$ a prohledávání stromu pokračuje normálně. Účelem je **diskriminovat** tahy, kde se bílý zbytečně vzdaluje od soupeře.
-
-$$
-V_{\text{retreat}}(s) = \begin{cases}
--1000 & \text{pokud } \bar{d}_{\text{atk}} > 5 \quad (\text{oba W daleko}) \\
--400  & \text{pokud } \bar{d}_{\text{atk}} > 4 \quad (\text{střední vzdálení})\\
--600  & \text{pokud } \min_i d(w_i, r) > 4 \quad (\text{ani jeden W v kontaktu}) \\
-0     & \text{jinak}
-\end{cases}
-$$ {#eq-retreat}
-
-Váhy ($-1000$, $-600$, $-400$) jsou řádově srovnatelné s $V_{\text{safety}}$ a $V_{\text{squeeze}}$, aby ústup „přebil" drobné poziční bonusy, ale nikoli materiální převahu.
-
-### 8. Vzdálenost červeného od rohu $V_{\text{rdist}}$
-
-Manhattanská vzdálenost červeného od dvojitého rohu $(1,2)$ — čím dále je červený od bezpečného rohu, tím lépe pro bílého:
-
-$$
-V_{\text{rdist}}(s) = 80 \cdot d_{\text{Manhattan}}(r, (1,2))
-$$ {#eq-rdist}
-
-### 9. Diagonální síť $V_{\text{net}}$
-
-Bonus za formaci „kotva + operátor", kde kotva drží pole 1 (roh) a operátor je na vzdálené diagonále. Tato formace vytváří bariéru, která brání červenému v úniku:
-
-$$
-V_{\text{net}}(s) = \begin{cases}
-+1200 & \text{pokud kotva na poli 1 a operátor } r \geq 4,\; c \geq 4 \\
-+600  & \text{pokud kotva na poli 1 a operátor } r \geq 3,\; c \geq 4 \\
--800  & \text{pokud } d(\text{operátor}, \text{roh}) \leq 3 \quad (\text{crowding})\\
-0     & \text{jinak}
-\end{cases}
-$$ {#eq-net}
-
-### 10. Přímý útok $V_{\text{attack}}$
-
-Bonus za diagonální sousedství bílého krále s červeným — platí pouze pokud červený **není** v bezpečné zóně $\mathcal{S} = \{1, 5, 28, 32\}$:
-
-$$
-V_{\text{attack}}(s) = \begin{cases}
-+150 \cdot |\{w_i : d_\infty(w_i, r) = 1\}| & \text{pokud } r \notin \mathcal{S} \\
-0 & \text{jinak}
-\end{cases}
-$$ {#eq-attack}
-
-kde $d_\infty$ je Čebyševova (šachová) vzdálenost.
-
-### 11. Kontrola dvojitého rohu $V_{\text{ctrl}}$
-
-Kontextově závislý systém bonusů/penalt pro kontrolu rohu:
-
-$$
-V_{\text{ctrl}}(s) = \begin{cases}
-+800 & \text{pokud } \exists w_i \text{ na poli 1} \quad (\text{kontrola rohu}) \\[4pt]
-(5 - d_{\min}) \cdot 300 & \text{pokud } d_{\min} \leq 3 \text{ a žádný } w \text{ blízko rohu} \\[4pt]
-+400 & \text{pokud } d_{\max} \geq 4 \text{ a jeden } w \text{ blízko rohu (správný spread)} \\
-+200 & \text{pokud } d_{\max} \geq 3 \text{ a jeden } w \text{ blízko rohu} \\
--600 & \text{pokud } d_{\min} \leq 2 \wedge d_{\max} \leq 3 \quad (\text{crowding}) \\
-0    & \text{jinak}
-\end{cases}
-$$ {#eq-ctrl}
-
-kde $d_{\min}, d_{\max}$ jsou Manhattanské vzdálenosti dvou bílých králů od pole 1.
-
-### Přehled komponent a vah
-
-| # | Komponenta | Rovnice | Klíčová váha | Kód region |
-|---|-----------|---------|-------------|------------|
-| 1 | $V_{\text{mat}}$ | @eq-material | $v_{\text{king}}=100$ | `perfect_material` |
-| 2 | $V_{\text{1v1}}$ (Pruning) | @eq-1v1 | `return` $-99\,999$ | `perfect_1v1` |
-| 3 | $V_{\text{corner}}$ | @eq-cornering, @eq-safety | $w_c=40$ | `perfect_cornering`, `perfect_red_pos` |
-| 4 | $V_{\text{squeeze}}$ | @eq-squeeze | $w_s=60$ | `perfect_coordination` |
-| 5 | $V_{\text{coord}}$ | @eq-coordination | opt. $d_{\text{ww}} \in [2,4]$ | `perfect_coordination` |
-| 6 | $V_{\text{mob}}$ | @eq-mobility | $+10\,000$ (výhra) | `perfect_mobility` |
-| 7 | $V_{\text{retreat}}$ | @eq-retreat | $-1000$ | `perfect_retreat` |
-| 8 | $V_{\text{rdist}}$ | @eq-rdist | $80 \cdot d$ | `perfect_red_pos` |
-| 9 | $V_{\text{net}}$ | @eq-net | $+1200$ (formace) | `perfect_net` |
-| 10 | $V_{\text{attack}}$ | @eq-attack | $+150$ (sousedství) | `perfect_attack` |
-| 11 | $V_{\text{ctrl}}$ | @eq-ctrl | $+800$ (kontrola) | `perfect_corner_control` |
-
-## Validovaný výsledek
-
-```
-  1. Bílý: 14-9      ← Přiblížení k rohu
-  2. Červený: 1-5
-  3. Bílý: 10-14     ← Příprava na squeeze
-  4. Červený: 5-1
-  5. Bílý: 9-5       ← Útok na roh
-  6. Červený: 1-6
-  7. Bílý: 5-1       ← Kotva obsazuje roh!
-  8. Červený: 6-2
-  9. Bílý: 14-18     ← Operátor jde diagonálně
- 10. Červený: 2-7
- 11. Bílý: 18-15     ← Squeeze pokračuje
- 12. Červený: 7-3
- 13. Bílý: 15-11     ← Finální sevření
- 14. Červený: 3-7
- 15. Bílý: 11x2      ← VÝHRA!
-```
-
----
-
-## 8. Ablační studie
-
-Pro ověření vlivu jednotlivých komponent heuristiky a strategií prořezávání byla provedena série ablačních experimentů. Experimenty byly spuštěny na zadané pozici (2 bílí králové vs 1 červený král) se hloubkou prohledávání 6 a limitem 40 půltahů.
-
-### Výsledky experimentů
-
-| Experiment | Výsledek | Tahy | Uzly (celkem) | Popis |
-|---|---|---|---|---|
-| **Baseline** | DRAW (Repet.) | 8 | 7012 | Plná heuristika (`perfect_endgame_heuristic`) + LossOfPiece pruning |
-| **Pruning_None** | DRAW (Repet.) | 8 | 7936 | Plná heuristika bez jakéhokoliv prořezávání (kromě $\alpha$-$\beta$) |
-| **Pruning_Retreat** | DRAW (Repet.) | 8 | 7610 | Plná heuristika s agresivním prořezáváním při ústupu |
-| **No_Material** | DRAW (Repet.) | 8 | 7012 | Bez materiálové složky (pouze poziční hodnocení) |
-| **No_Cornering** | DRAW (Repet.) | 8 | 7222 | Bez bonusu za vytlačení soupeře z centra |
-| **No_Coordination** | DRAW (Repet.) | 8 | 6530 | Bez bonusu za koordinaci králů |
-| **No_Mobility** | DRAW (Repet.) | 8 | 6598 | Bez hodnocení mobility soupeře |
-| **No_RetreatPenalty** | DRAW (Repet.) | 8 | 6651 | Bez penalizace za zbytečný ústup |
-| **No_Net** | **WHITE** | **9** | **7435** | **Bez diagonální sítě (Net Formation)** |
-| **No_Attack** | DRAW (Repet.) | 8 | 6908 | Bez bonusu za přímé sousedství (útok) |
-| **No_CornerControl** | DRAW (Repet.) | 8 | 7055 | Bez bonusu za kontrolu dvojitého rohu |
-
-### Analýza výsledků
-
-1.  **Vliv „Net Formation“ ($V_{\text{net}}$):**
-    *   Nejzajímavějším výsledkem je, že **vypnutí komponenty $V_{\text{net}}$ (diagonální síť) vedlo k okamžité výhře v 9 tazích**.
-    *   Všechny ostatní konfigurace skončily **remízou opakováním pozice (3-fold repetition)** již po 8 půltazích.
-    *   To potvrzuje, že snaha o udržení rigidní diagonální formace („Net“) nutila AI k opakování tahů (cyklení), místo aby přešla do útoku.
-    *   Bez této komponenty se králové mohli pohybovat volněji a využít ostatní principy (Safety Zone, Mobility, Cornering) k rychlému vítězství.
-
-2.  **Efektivita prořezávání (Pruning):**
-    *   `Baseline` (LossOfPiece) prozkoumal **39 033 uzlů**, zatímco `Pruning_None` prozkoumal **42 897 uzlů**.
-    *   To potvrzuje, že identifikace pseudo-terminálních stavů (ztráta figury) ušetřila přibližně **9 %** výpočetního času, aniž by změnila výsledek hry (v baseline konfiguraci).
-
-3.  **Význam ostatních komponent:**
-    *   Ostatní ablace vedly ke stejnému výsledku jako Baseline (remíza opakováním), což naznačuje, že v přítomnosti problematické $V_{\text{net}}$ složky neměly samy o sobě rozhodující vliv na prolomení cyklu.
-
-**Závěr:** Pro optimální výkon v této koncovce je doporučeno **deaktivovat** nebo výrazně přeformulovat komponentu $V_{\text{net}}$, která se ukázala jako kontraproduktivní.
-
----
-<!---->
-<!-- # Prezentace výsledků simulace v Quarto -->
-<!---->
-<!-- ## Přístup 1: Julia Code Block s výstupem -->
-<!---->
-<!-- ```{julia} -->
-<!-- #| label: fig-simulation -->
-<!-- #| fig-cap: "Průběh simulace 2v1 koncovky" -->
-<!-- #| echo: true -->
-<!-- #| output: true -->
-<!---->
-<!-- # Spuštění simulace přímo z Quarto dokumentu -->
-<!-- include("../../ang-dama-value-func/testvaluefunc.jl") -->
-<!---->
-<!-- # Vytvoření počáteční desky -->
-<!-- board = create_assignment_board() -->
-<!-- println("Počáteční pozice:") -->
-<!-- print_board(board) -->
-<!---->
-<!-- # Spuštění simulace -->
-<!-- run_assignment_simulation( -->
-<!--     search_depth=6, -->
-<!--     num_turns=20, -->
-<!--     save_trees=false -->
-<!-- ) -->
-<!-- ``` -->
-<!---->
-<!-- ## Přístup 2: Statický JSON výstup -->
-<!---->
-<!-- Pro reprodukovatelnost lze simulaci spustit předem a výsledky uložit do JSON: -->
-<!---->
-<!-- ```{julia} -->
-<!-- #| label: load-results -->
-<!-- #| echo: false -->
-<!-- #| eval: false -->
-<!---->
-<!-- using JSON3 -->
-<!---->
-<!-- # Předpokládá existenci souboru s výsledky -->
-<!-- results = JSON3.read(read("simulation_results.json", String)) -->
-<!-- ``` -->
-<!---->
-<!-- ## Přístup 3: Interaktivní vizualizace s Observable -->
-<!---->
-<!-- ```{ojs} -->
-<!-- //| label: board-viz -->
-<!-- //| echo: false -->
-<!-- //| eval: false -->
-<!---->
-<!-- // Vizualizace herní desky pomocí D3.js -->
-<!-- board_data = FileAttachment("board_states.json").json() -->
-<!---->
-<!-- Plot.plot({ -->
-<!--   grid: true, -->
-<!--   marks: [ -->
-<!--     Plot.cell(board_data, { -->
-<!--       x: "col", -->
-<!--       y: "row", -->
-<!--       fill: d => d.piece === "W" ? "white" : d.piece === "R" ? "red" : "brown" -->
-<!--     }) -->
-<!--   ] -->
-<!-- }) -->
-<!-- ``` -->
-<!---->
-<!-- ## Přístup 4: Callout pro klíčové momenty -->
-<!---->
-<!-- ::: {.callout-tip title="Klíčový tah 9: 14→18"} -->
-<!-- V tomto momentu operátor **nesmí** jít k rohu (14→10), ale musí vytvořit diagonální síť (14→18).  -->
-<!-- Toto je kritický moment, který rozhoduje mezi výhrou a remízou. -->
-<!-- ::: -->
-<!---->
-<!-- ## Přístup 5: Tabulka s heuristickými hodnotami -->
-<!---->
-<!-- | Tah | Pozice | Heuristika | Minimax@6 | Poznámka | -->
-<!-- |-----|--------|------------|-----------|----------| -->
-<!-- | 14-9 | W@9,10 R@1 | 1070 | 1470 | ✓ Správný | -->
-<!-- | 10-7 | W@7,14 R@1 | 610 | 1470 | Tied, ale 14-9 preferován | -->
-<!-- | 10-6 | W@6,14 R@1 | 1370 | -99999 | ✗ Vede k prohře | -->
-<!---->
-<!-- ## Doporučená struktura QMD -->
-<!---->
-<!-- ```yaml -->
-<!-- --- -->
-<!-- title: "Simulace Alpha-Beta Pruning" -->
-<!-- author: "Student" -->
-<!-- format: -->
-<!--   html: -->
-<!--     code-fold: true -->
-<!--     toc: true -->
-<!--   pdf: -->
-<!--     documentclass: article -->
-<!-- execute: -->
-<!--   cache: true       # Cache výsledků = rychlejší re-render -->
-<!--   freeze: auto      # Spouštět pouze při změně kódu -->
-<!-- --- -->
-<!-- ``` -->
-<!---->
-<!-- ## Generování vizualizací herní desky -->
-<!---->
-<!-- Pro ASCII art vizualizaci přímo v dokumentu: -->
-<!---->
-<!-- ```{julia} -->
-<!-- #| label: board-ascii -->
-<!-- #| fig-cap: "Finální pozice před výhrou" -->
-<!-- #| output: asis -->
-<!---->
-<!-- # Vytvoř finální pozici -->
-<!-- # W@11, R@7 → 11x2 = výhra -->
-<!-- final_board = zeros(Int, 8, 8) -->
-<!-- # ... nastavení figur ... -->
-<!-- print_board(final_board) -->
-<!-- ``` -->
-<!---->
-<!-- ## Export do různých formátů -->
-<!---->
-<!-- ```bash -->
-<!-- # HTML s interaktivními prvky -->
-<!-- quarto render alphabeta-sim-tros01.qmd --to html -->
-<!---->
-<!-- # PDF pro odevzdání -->
-<!-- quarto render alphabeta-sim-tros01.qmd --to pdf -->
-<!---->
-<!-- # Reveal.js prezentace -->
-<!---->
-<!---->
-<!-- # -->
-
+### Závěr k analýze
+Jak vidíme na obrázcích @fig-phase4 až @fig-phase7, jakmile se podaří sestavit "síť" (princip #4), hra přechází do deterministické fáze. Heuristika v této chvíli dává tak vysoké skóre, že Alpha-Beta ořezávání eliminuje téměř všechny ostatní větve a agent hraje prakticky okamžitě.

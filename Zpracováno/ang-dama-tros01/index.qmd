@@ -1,0 +1,10 @@
+---
+title: "Úvod"
+---
+
+Tento dokument sjednocuje dvě klíčové fáze řešení semestrální práce do předmětu 4IZ431:
+
+1. **Manuální dohrání**: Analýza a vizualizace koncovky.
+2. **Simulace**: Ladění a verifikace evaluační funkce.
+
+Obě části jsou integrovány do jedné knihy pro snadnou navigaci a kontext.

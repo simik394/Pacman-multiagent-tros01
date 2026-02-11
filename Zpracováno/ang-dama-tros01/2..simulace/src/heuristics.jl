@@ -58,6 +58,26 @@ end
 const DEFAULT_CONFIG = HeuristicConfig()
 
 # ------------------------------------------------------------------------------
+# KONSTANTY PRO EVALUACI
+# ------------------------------------------------------------------------------
+
+const PERFECT_WEIGHTS = Dict(
+    :MATERIAL => 100.0,
+    :WIN => 10000.0,
+    :PRUNING => -99999.0,
+    :SAFETY_RED => -600.0,
+    :ACTIVE_RED => 500.0,
+    :COORD => 300.0,
+    :SQUEEZE => 60.0,
+    :RETREAT_MAX => -1000.0,
+    :RETREAT_MID => -400.0,
+    :RETREAT_FAR => -600.0,
+    :NET => 1200.0,
+    :CROWDING => -800.0,
+    :MOBILITY => 600.0
+)
+
+# ------------------------------------------------------------------------------
 # HLAVNÍ HEURISTIKA - Plně vybavená s endgame logikou
 # ------------------------------------------------------------------------------
 
@@ -616,10 +636,10 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
 
     # Vítězství / prohra
     if red_kings == 0
-        return const_WIN
+        return PERFECT_WEIGHTS[:WIN]
     end
     if white_kings == 0
-        return -const_WIN
+        return -PERFECT_WEIGHTS[:WIN]
     end
 
     # ==========================================================================
@@ -628,7 +648,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
     # ==========================================================================
     #| region: perfect_1v1
     if white_kings == 1 && red_kings >= 1
-        return -99999.0
+        return PERFECT_WEIGHTS[:PRUNING]
     end
     #| endregion: perfect_1v1
 
@@ -655,9 +675,9 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
             red_notation = position_to_notation(red_row, red_col)
             red_in_safety = red_notation in SAFETY_FIELDS
             if red_in_safety
-                score -= 600.0  # Red je v bezpečí = VELMI ŠPATNĚ pro bílého
+                score += PERFECT_WEIGHTS[:SAFETY_RED]  # <1>
             else
-                score += 500.0  # Red je mimo bezpečí = VELMI DOBŘE pro bílého
+                score += PERFECT_WEIGHTS[:ACTIVE_RED]  # <2>
             end
             #| endregion: perfect_red_pos
         end
@@ -679,7 +699,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
                 # Optimální koordinace: vzdálenost 2-4
                 #| region: perfect_coordination
                 if king_distance >= 2 && king_distance <= 6
-                    score += 300.0  # Dobrá koordinace (zvýšeno na 6 pro široké sítě)
+                    score += PERFECT_WEIGHTS[:COORD]  # <1>
                 elseif king_distance == 1
                     score += 100.0  # Příliš blízko - méně efektivní
                 elseif king_distance >= 5
@@ -688,7 +708,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
 
                 # Bonus za "sevření" - oba králové blízko červenému
                 # Průměrná vzdálenost k červenému (menší = lepší sevření)
-                score += (6.0 - avg_dist) * 60.0  # Bonus za blízkost
+                score += (6.0 - avg_dist) * PERFECT_WEIGHTS[:SQUEEZE] # <2>
                 #| endregion: perfect_coordination
 
                 # Bridge Penalty
@@ -720,16 +740,15 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
                 #| region: perfect_retreat
                 # Pokud OBADVA králové jsou daleko od R = ústup/promarněná příležitost
                 if avg_dist > 5.0
-                    score -= 1000.0  # SILNÁ penalta - pseudo-terminální stav
+                    score += PERFECT_WEIGHTS[:RETREAT_MAX]  # <1>
                 elseif avg_dist > 4.0
-                    score -= 400.0   # Střední penalta - zbytečná vzdálenost
+                    score += PERFECT_WEIGHTS[:RETREAT_MID]   # <2>
                 end
 
                 # Pokud NEJBLIŽŠÍ král je stále daleko = špatná pozice
                 min_dist = min(dist_wp1_to_red, dist_wp2_to_red)
                 if min_dist > 4
-                    score -= 600.0   # Žádný W není v útočné vzdálenosti
-
+                    score += PERFECT_WEIGHTS[:RETREAT_FAR]   # <3>
                 end
                 #| endregion: perfect_retreat
             end
@@ -771,13 +790,13 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
                     # Pole 18 = (5,4), pole 15 = (4,6), pole 22 = (6,5) atd.
                     # Rozšířeno na row >= 3 (1200) aby nedocházelo k dropu při 15->11
                     if op_row >= 3 && op_col >= 4
-                        score += 1200.0  # Konstantní bonus pro formaci
+                        score += PERFECT_WEIGHTS[:NET] # <1>
                     end
 
                     # SILNÁ penalta za operátora blízko rohu (crowding)
                     # Pole 10 = (3,4), pole 6 = (2,3) - tyto pozice jsou ŠPATNÉ
                     if op_dist_from_corner <= 3
-                        score -= 800.0  # Crowding penalta
+                        score += PERFECT_WEIGHTS[:CROWDING] # <2>
                     end
                 end
                 #| endregion: perfect_net
@@ -795,9 +814,9 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
                 num_moves = length(red_moves)
 
                 if num_moves == 0
-                    score += const_WIN  # Výhra
+                    score += PERFECT_WEIGHTS[:WIN]  # Výhra
                 elseif num_moves == 1
-                    score += 600.0  # Excelentní - červený v pasti
+                    score += PERFECT_WEIGHTS[:MOBILITY]
                 elseif num_moves == 2
                     score += 300.0  # Dobré - omezená mobilita
                 elseif num_moves == 3

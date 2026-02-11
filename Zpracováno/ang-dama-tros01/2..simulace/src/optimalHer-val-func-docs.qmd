@@ -145,3 +145,5 @@ Perfect: Pole 6 bonus pouze kdyz zadny W neni blizko rohu
 3. Neni robustni vuci horizon effectu
 
 Pro produkcni nasazeni je doporuceno pouzit `perfect_endgame_heuristic`, ktera tyto problemy resi.
+
+
