@@ -767,49 +767,28 @@ function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta:
     end
 
     # 1. Pseudo-terminální testy (Pruning)
-    if pruning == PRUNE_LOSS_OF_PIECE
-        # Pokud bílý ztratil figuru (2v1 -> 1v1), je to prohra
+    # PRUNE_HUMAN zahrnuje všechny tři: loss-of-piece + retreat + beam K=2
+    if pruning == PRUNE_LOSS_OF_PIECE || pruning == PRUNE_HUMAN
+        # Pokud bílý ztratil figuru (2v1 -> 1v1), je to pseudo-terminální stav
         stats = board_stats(board)
         white_count = stats.white_pieces + stats.white_kings
         if white_count < 2
-            # Pseudo-terminální: ztráta figury = prohra
-            # Využijeme heuristiku, která by měla dát nízké skóre
-            # Ale pro jistotu můžeme vrátit rovnou penalizaci
-            # score = -10000.0 (téměř prohra, ale trochu min než mat)
-            # Raději zavoláme heuristiku, která by to měla poznat
             score = Float64(perfect_endgame_heuristic(board, config))
-            # Pokud heuristika nedává dostatečně nízké skóre (kvůli vypnutému materialu?),
-            # můžeme to "vynutit", ale spoléháme na heuristiku.
-            # Pro jistotu: pokud use_material=false, heuristika to nepozná.
-            # Takže raději natvrdo penalizujeme pokud config dovolí?
-            # Ne, ablační studie testuje config.
-            # Ale pruning je ZVLÁŠŤ. Takže pruning by měl ukončit větev.
-
             node_id = add_tree_node(board, move_str * " [LOSS PRUNED]", score, alpha, beta, is_maximizing, depth, true)
             return score, nothing, node_id
         end
-    elseif pruning == PRUNE_RETREAT && !is_maximizing
-        # Retreat pruning check (only relevant after White moves, so check when it is RED's turn)
-        # Tzn. is_maximizing == false (zrovna hraje MIN/Red, takže předtím táhl MAX/White)
-
-        # Změř vzdálenost
-        # Potřebujeme předchozí Board? Nemáme ho.
-        # Ale můžeme změřit absolutní vzdálenost.
-        # "vzdálení se od oponenta byť o jedno pole více než je nezbytně nutné"
-        # To se těžko měří bez předchozího stavu.
-        # Ale můžeme říct: pokud distance > 5 (zbytečně daleko), prune.
-
-        eval_sc, wk, rk, w_pos, r_pos = eval_material(board, config) # Použij helper z heuristics
+    end
+    if (pruning == PRUNE_RETREAT || pruning == PRUNE_HUMAN) && !is_maximizing
+        # Retreat pruning: pokud se bílý zbytečně vzdálí od soupeře
+        eval_sc, wk, rk, w_pos, r_pos = eval_material(board, config)
         if length(w_pos) >= 2 && length(r_pos) >= 1
             wp1, wp2 = w_pos[1], w_pos[2]
             rp = r_pos[1]
             d1 = abs(wp1[1] - rp[1]) + abs(wp1[2] - rp[2])
             d2 = abs(wp2[1] - rp[1]) + abs(wp2[2] - rp[2])
             avg_dist = (d1 + d2) / 2.0
-
-            # Prh: pokud average distance > 5.0, prune.
             if avg_dist > 5.0
-                score = Float64(perfect_endgame_heuristic(board, config)) - 1000.0 # Force penalty
+                score = Float64(perfect_endgame_heuristic(board, config)) - 1000.0
                 node_id = add_tree_node(board, move_str * " [RETREAT PRUNED]", score, alpha, beta, is_maximizing, depth, true)
                 return score, nothing, node_id
             end
@@ -833,6 +812,11 @@ function minimax_with_tree(board::Matrix{Int}, depth::Int, alpha::Float64, beta:
 
     # Vytvoř uzel pro vizualizaci stromu (skóre se aktualizuje později)
     current_node_id = add_tree_node(board, move_str, 0.0, alpha, beta, is_maximizing, depth, false)
+
+    # Beam Search K=2: pro PRUNE_HUMAN ponech jen 2 nejlepší tahy
+    if pruning == PRUNE_HUMAN && length(moves) > 2
+        moves = moves[1:2]
+    end
 
     # Inicializace nejlepšího tahu (první tah jako výchozí)
     best_move = moves[1]
@@ -1007,13 +991,15 @@ function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, 
     end
 
     # 1. Pseudo-terminální testy (Pruning)
-    if pruning == PRUNE_LOSS_OF_PIECE
+    # PRUNE_HUMAN zahrnuje všechny tři: loss-of-piece + retreat + beam K=2
+    if pruning == PRUNE_LOSS_OF_PIECE || pruning == PRUNE_HUMAN
         stats = board_stats(board)
         white_count = stats.white_pieces + stats.white_kings
         if white_count < 2
             return Float64(perfect_endgame_heuristic(board, config)), nothing
         end
-    elseif pruning == PRUNE_RETREAT && !is_maximizing
+    end
+    if (pruning == PRUNE_RETREAT || pruning == PRUNE_HUMAN) && !is_maximizing
         eval_sc, wk, rk, w_pos, r_pos = eval_material(board, config)
         if length(w_pos) >= 2 && length(r_pos) >= 1
             wp1, wp2 = w_pos[1], w_pos[2]
@@ -1046,6 +1032,11 @@ function minimax(board::Matrix{Int}, depth::Int, alpha::Float64, beta::Float64, 
     end
     moves = [x[1] for x in scored_moves]
     #| endregion: move_ordering
+
+    # Beam Search K=2: pro PRUNE_HUMAN ponech jen 2 nejlepší tahy
+    if pruning == PRUNE_HUMAN && length(moves) > 2
+        moves = moves[1:2]
+    end
 
     best_move = moves[1]
 
