@@ -50,4 +50,5 @@ format:
           \setmonofont{Linux Libertine Mono O}
           \setmathfont{Latin Modern Math}
     include-before-body:
-      - title.tex
+      # - 
+      - ang-dama-tros01/titlepage.tex

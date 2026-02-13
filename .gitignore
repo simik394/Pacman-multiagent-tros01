@@ -1,5 +1,6 @@
 /.luarc.json
 simulation_outputs/
+simulation_data/
 out/
 staging_temp/
 .quarto/
