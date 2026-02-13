@@ -20,14 +20,16 @@ execute:
 
 | # | Princip | Popis |
 |---|---------|-------|
-| 1 | Material | Zakladni hodnota figur a 1v1 ochrana |
-| 2 | Red Position | Viditelnost pozice cerveneho |
-| 3 | Coordination | Squeeze formace |
-| 4 | Retreat Penalty | Pseudo-terminalni stavy |
-| 5 | Net Formation | Diagonalni spread operatora |
-| 6 | Mobility | Omezeni tahu soupere |
-| 7 | Cornering | Tlak k okrajum |
-| 8 | Corner Control | Kontextove zavisle rizeni rohu |
+| 1 | Material | Základní hodnota figur a 1v1 ochrana |
+| 2 | Red Position | Viditelnost pozice červeného (Penalty/Bonus) |
+| 3 | Coordination | Squeeze formace (Vytlačení z prostoru) |
+| 4 | Retreat Penalty | Pseudo-terminální stavy (Zákaz pasivity) |
+| 5 | Net Formation | Diagonální síť (Spolupráce králů) |
+| 6 | Mobility | Omezení tahů soupeře |
+| 7 | Cornering | Tlak k okrajům (Kontrola hry) |
+| 8 | Corner Control | Kontextově závislé řízení rohu |
+
+> **Poznámka k principům:** Ačkoliv tabulka uvádí 8 bodů, v implementaci jsou některé principy (např. 7 a 8) úzce provázány a sdílejí logiku. Číslování sekcí níže odpovídá logickým blokům kódu.
 
 > **Pristup:** Zadne hardcoded pozice - pouze obecne principy.
 
@@ -41,7 +43,7 @@ execute:
 ### Klicova inovace
 
 1. **Anchor vs Operator** - rozliseni roli kralu
-2. **Pseudo-terminalni stavy** - penalta za zbytecny ustup
+4. **Pseudo-terminální stavy** - Stavy, které nejsou podle pravidel prohra (MAT), ale heuristika je tak tvrdě penalizuje (např. ústup do pole), že se jim agent vyhne jako čert kříži. Umožňuje to "oříznout" větve, které by vedly jen k plýtvání časem.
 3. **Move ordering** - serazeni tahu pred minimax
 
 \newpage
@@ -61,7 +63,9 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 ```{.julia include="heuristics.jl" region="perfect_1v1"}
 ```
 
-> **Rozdil od Optimal:** `optimal` pouziva penaltu -2000, `perfect` pouziva hard forbidden -99999.
+> **Rozdíl od Optimal:** `optimal` používá penaltu -2000, `perfect` používá **hard forbidden** -99999.
+>
+> *Vysvětlení:* "Hard forbidden" zde neznamená hardcoded pozici (např. "pokud jsi na E5, prohrál jsi"), ale **logické pravidlo**. 1v1 je teoretická remíza, což je pro nás prohra. Proto tento stav považujeme za "zakázaný" stejně jako skok do propasti.
 
 ### PRINCIP 2: Pozice cerveneho
 
@@ -74,6 +78,8 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 
 ```{.julia include="heuristics.jl" region="perfect_coordination"}
 ```
+
+> **Definice "Squeeze":** "Squeeze" (sevření) není jen o nedostatku tahů. Je to geometrická formace, kde naši králové omezují pohyb soupeře tím, že kontrolují klíčové diagonály kolem něj. Čím blíže jsou naši králové k soupeři (při zachování bezpečné vzdálenosti), tím vyšší "Squeeze" bonus.
 
 \newpage
 
@@ -91,7 +97,14 @@ Kracive logika - rozliseni **kotvy** a **operatora**:
 ```{.julia include="heuristics.jl" region="perfect_net"}
 ```
 
-> **Toto je klicova inovace** - jakmile kotva drzi roh, operator MUSI jit diagonalne (14→18), ne k rohu (14→10).
+> **Klíčová inovace - Kotva a Operátor:**
+>
+> Algoritmus dynamicky určuje role králů:
+> 1.  Vypočítá vzdálenost obou králů od klíčového rohu.
+> 2.  Král, který je **blíž**, se stává **Kotvou** (Anchor) - jeho úkolem je držet roh/bariéru.
+> 3.  Druhý král je **Operátor** - ten musí "operovat" v prostoru (diagonálně), aby soupeře nadběhl.
+>
+> *Proč 14-18?* Tah `14-18` je vyvrcholením této strategie v koncovce. Zatímco tah `14-9` (viz Regrese) byl nutný pro *přiblížení* (Approach fáze), tah `14-18` je nutný pro *uzavření sítě* (Net fáze). Operátor tím odřízne červenému ústupovou cestu.
 
 \newpage
 
@@ -106,6 +119,8 @@ Kracive logika - rozliseni **kotvy** a **operatora**:
 
 Tlačení červeného k okrajům desky ("Kontrola hry").
 
+> **Metrika vzdálenosti:** Zde se klíčově uplatňuje **Čebyševova vzdálenost** (max(|dx|, |dy|)), která správně měří vzdálenost v počtu tahů krále (včetně diagonálního pohybu), na rozdíl od nevhodné Manhattanské metriky.
+
 ```{.julia include="heuristics.jl" region="perfect_cornering"}
 ```
 
@@ -114,7 +129,9 @@ Tlačení červeného k okrajům desky ("Kontrola hry").
 ```{.julia include="heuristics.jl" region="perfect_corner_control"}
 ```
 
-> **Kontextova zavislost** - bonus za roh POUZE kdyz tam jeste nikdo neni.
+> **Kontextová závislost:** Bonus za roh se uděluje POUZE tehdy, když je tam místo (nikdo tam není). Tím se řeší konflikt s principem "Crowding" (Přeplnění).
+>
+> *Poznámka k hloubce 6:* Celá heuristika je laděna pro hloubku prohledávání 6 (3 tahy bílý, 3 tahy červený). Tato hloubka byla zvolena jako kompromis: je dostatečná, aby agent "viděl" důsledky svých taktických manévrů (např. přípravu na Squeeze), ale zároveň výpočetně zvládnutelná v reálném čase. Hloubka 5 by byla příliš mělká (Horizon effect by skryl pasti), hloubka 7+ exponenciálně náročnější bez zásadního zisku v této koncovce.
 
 \newpage
 
