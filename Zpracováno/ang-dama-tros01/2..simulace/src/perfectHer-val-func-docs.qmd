@@ -57,10 +57,10 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 
 ### PRINCIP 1: Material a 1v1 ochrana
 
-```{.julia include="heuristics.jl" region="perfect_material"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_material" dedent="true"}
 ```
 
-```{.julia include="heuristics.jl" region="perfect_1v1"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_1v1" dedent="true"}
 ```
 
 > **Rozdíl od Optimal:** `optimal` používá penaltu -2000, `perfect` používá **hard forbidden** -99999.
@@ -69,15 +69,21 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 
 ### PRINCIP 2: Pozice cerveneho
 
-```{.julia include="heuristics.jl" region="perfect_red_pos"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_red_pos" dedent="true"}
 ```
+
+1. Penalta: Červený král v bezpečné zóně (dvojitý roh) — heuristika *chce*, aby se soupeř pohnul.
+2. Bonus: Červený je mimo bezpečí — indikátor úspěšného vytlačení.
 
 > **Klicovy rozdil:** Pozice cerveneho je primo viditelna v hodnote - penalta I bonus.
 
 ### PRINCIP 3: Koordinovany utok (Squeeze)
 
-```{.julia include="heuristics.jl" region="perfect_coordination"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_coordination" dedent="true"}
 ```
+
+1. Bonus za koordinaci králů ve vzdálenosti 2–6 polí (sweet spot).
+2. Sevření (Squeeze) — bonus roste s klesající průměrnou vzdáleností k soupeři.
 
 > **Definice "Squeeze":** "Squeeze" (sevření) není jen o nedostatku tahů. Je to geometrická formace, kde naši králové omezují pohyb soupeře tím, že kontrolují klíčové diagonály kolem něj. Čím blíže jsou naši králové k soupeři (při zachování bezpečné vzdálenosti), tím vyšší "Squeeze" bonus.
 
@@ -85,8 +91,12 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 
 ### PRINCIP 4: Penalta za zbytecny ustup
 
-```{.julia include="heuristics.jl" region="perfect_retreat"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_retreat" dedent="true"}
 ```
+
+1. Tvrdá penalta: oba králové příliš daleko (`avg_dist > 5`) — promarněná příležitost.
+2. Střední penalta: vzdálenost nad 4 — agent ztrácí tlak.
+3. Penalta za nejbližšího krále stále daleko — špatná pozice.
 
 > **Toto zamezuje hre na cas** - bily se nemuze utahovat do nekonecna.
 
@@ -94,8 +104,11 @@ Pri zmene zdrojoveho kodu se dokumentace automaticky aktualizuje.
 
 Kracive logika - rozliseni **kotvy** a **operatora**:
 
-```{.julia include="heuristics.jl" region="perfect_net"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_net" dedent="true"}
 ```
+
+1. Net bonus: Operátor je na správné diagonále (row ≥ 3, col ≥ 4) — síť je roztažená.
+2. Crowding penalta: Operátor příliš blízko rohu — králové si překáží.
 
 > **Klíčová inovace - Kotva a Operátor:**
 >
@@ -112,7 +125,7 @@ Kracive logika - rozliseni **kotvy** a **operatora**:
 
 Čím méně tahů má červený, tím lépe. 0 tahů = výhra.
 
-```{.julia include="heuristics.jl" region="perfect_mobility"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_mobility" dedent="true"}
 ```
 
 ### PRINCIP 7: Cornering (Tlak k okrajům)
@@ -121,12 +134,12 @@ Tlačení červeného k okrajům desky ("Kontrola hry").
 
 > **Metrika vzdálenosti:** Zde se klíčově uplatňuje **Čebyševova vzdálenost** (max(|dx|, |dy|)), která správně měří vzdálenost v počtu tahů krále (včetně diagonálního pohybu), na rozdíl od nevhodné Manhattanské metriky.
 
-```{.julia include="heuristics.jl" region="perfect_cornering"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_cornering" dedent="true"}
 ```
 
 ### PRINCIP 8: Kontextove zavisle rizeni rohu
 
-```{.julia include="heuristics.jl" region="perfect_corner_control"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_corner_control" dedent="true"}
 ```
 
 > **Kontextová závislost:** Bonus za roh se uděluje POUZE tehdy, když je tam místo (nikdo tam není). Tím se řeší konflikt s principem "Crowding" (Přeplnění).
@@ -139,7 +152,7 @@ Tlačení červeného k okrajům desky ("Kontrola hry").
 
 Kricka optimalizace pro reseni horizon effectu:
 
-```{.julia include="testvaluefunc.jl" region="move_ordering"}
+```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/testvaluefunc.jl" region="move_ordering" dedent="true"}
 ```
 
 **Vyhody:**
@@ -159,11 +172,43 @@ Kricka optimalizace pro reseni horizon effectu:
 
 ## ── Nalezeni posledniho simulation runu ──────────────────────────────
 cur_doc_dir = pwd()  # Quarto nastavi CWD na adresar dokumentu
-sim_base_path = joinpath(cur_doc_dir, "..", "out", "simulation_outputs")
+
+# Robustni nalezeni project root (pro staged i source render)
+if basename(cur_doc_dir) == "staging_temp"
+    # Jsme v staging_temp (primo v root projektu)
+    project_root = dirname(cur_doc_dir)
+else
+    # Jsme v ang-dama-tros01/2..simulace/src/ (3 urovne hluboko)
+    project_root = joinpath(cur_doc_dir, "..", "..", "..")
+end
+
+sim_base_path = joinpath(project_root, "simulation_data")
+if !isdir(sim_base_path)
+    # Zkusime fallback do stareho umisteni (kdyby nahodou)
+    sim_base_path = joinpath(project_root, "out", "simulation_outputs")
+end
+
+if !isdir(sim_base_path)
+    println("⚠ CHYBA: Adresář s daty simulace nenalezen: $sim_base_path")
+    # Vytvorime dummy run aby zbytek scriptu nespadl
+    mkpath(joinpath(sim_base_path, "run_dummy"))
+    open(joinpath(sim_base_path, "run_dummy", "pruběh_simulace.txt"), "w") do f
+        write(f, "Dummy simulation run\n")
+    end
+end
+
 run_dirs = filter(d -> startswith(d, "run_"), readdir(sim_base_path))
+if isempty(run_dirs)
+    println("⚠ Žádné běhy simulace nenalezeny v $sim_base_path")
+    mkpath(joinpath(sim_base_path, "run_dummy"))
+    open(joinpath(sim_base_path, "run_dummy", "pruběh_simulace.txt"), "w") do f
+        write(f, "Dummy simulation run\n")
+    end
+    run_dirs = ["run_dummy"]
+end
 latest_run = sort(run_dirs)[end]
 active_run_path = joinpath(sim_base_path, latest_run)
-println("**Zdrojovy run:** `$latest_run`\n")
+println("**Zdrojovy run:** `$latest_run` (z `$sim_base_path`)\n")
 
 ## ── Parsovani pruběh_simulace.txt ────────────────────────────────────
 raw = read(joinpath(active_run_path, "pruběh_simulace.txt"), String)
@@ -786,32 +831,13 @@ else
 end
 ```
 
-## Závěrečná zpráva o verifikaci
+## Shrnutí validace
 
-### Analýza regrese: Problém nerozhodnosti v hloubce 6
+Výše uvedené testy potvrzují, že `perfect_endgame_heuristic` spolehlivě nalézá vítěznou strategii v koncovce 2 králové proti 1 králi. Klíčové závěry:
 
-Během optimalizace jsme narazili na kritický problém (regresi), kdy heuristika přidělovala **stejné skóre** optimálnímu tahu `14-9` a suboptimálnímu tahu `10-7`. To způsobilo, že agent nebyl schopen vybrat vítěznou variantu.
+- **Alpha-Beta ořezávání** dává identické výsledky jako hrubá síla (Brute-force), ale s řádově menším počtem prozkoumaných uzlů.
+- **Pseudo-terminální stavy** (ztráta figury, ústup) efektivně zmenšují prohledávací prostor bez ztráty kvality řešení.
+- **Beam search (Human varianta)** redukuje strom na pouhých ~13 uzlů a stále nalézá optimální tah — což odpovídá intuitivnímu lidskému rozhodování.
 
-Příčinou byly dva faktory:
-
-1.  **Nevhodná metrika (Manhattanská vzdálenost):** Původní implementace naivně používala Manhattanskou metriku (`|dx| + |dy|`), která je standardem pro mřížkové hry. V dámě, kde se králové pohybují po diagonálách, je však tato metrika zavádějící. Pole, které je vzdálené 2 kroky diagonálně, má stejnou "vzdálenost" jako jiné pole vzdálené 2 kroky ortogonálně, ačkoliv v herním prostoru je to diametrální rozdíl. Agent tak neviděl rozdíl mezi polem 9 (cesta k cíli) a polem 2 (slepá ulička).
-2.  **Penalta za "Crowding" (Přeplnění):** Heuristika penalizovala optimální tah `14-9`, protože se oba králové dostali do zóny "Near Corner" současně. Tato penalta měla sloužit proti pasivitě, ale zde paradoxně trestala aktivní útok.
-
-#### Aplikované opravy
-
-1.  **Čebyševova vzdálenost:** Změnili jsme metriku v `perfect_endgame_heuristic` (Corner Control) z Manhattanské (`sum`) na Čebyševovu (`max`). Tato metrika přirozeně respektuje diagonální pohyb krále a správně vyhodnotila klíčové pole 5 jako "vzdálenost 1", zatímco ostatní pole zůstala dále.
-2.  **Cílený bonus za blízkost:** Přidali jsme specifický bonus (+500) za dosažení vzdálenosti 1 (`closer_dist <= 1`). Protože pouze optimální sekvence `14-9 -> 9-5` vede takto rychle blízko, vytvořilo to potřebný skóre gradient.
-3.  **Uvolnění podmínky Crowding:** Upravili jsme penalizaci tak, aby se spouštěla pouze tehdy, když jsou **oba** králové na vzdálenost <= 2. Tím jsme eliminovali falešné poplachy během nutné přibližovací fáze.
-
-#### Výsledek verifikace
-
-Finální verifikační běh (viz tabulka výše) potvrzuje opravu:
-
-- **Optimální tah (14-9):** Skóre **4160.0** (Aktivní bonus za vzdálenost 1)
-- **Suboptimální tah (10-7):** Skóre **3670.0** (Vzdálenost 2, bez bonusu)
-- **Rozdíl skóre:** **+490.0** ve prospěch optimálního tahu.
-
-Simulace nyní správně přehraje celou vítěznou sekvenci až do matu.
-
-
+Detailní rozbor regrese (problém nerozhodnosti mezi tahy `14-9` a `10-7`) a její řešení pomocí Čebyševovy metriky je popsán v předchozí kapitole (Případová studie: Rozhodování v Hloubce 6).
 

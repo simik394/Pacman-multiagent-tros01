@@ -23,9 +23,12 @@ book:
 filters:
   - include-code-files
 
+code-annotations: below
+
 format:
   pdf:
     documentclass: report
+    code-overflow: wrap
     papersize: a4
     fontsize: 11pt
     max-width: 100% # Ensure full width usage
@@ -41,6 +44,8 @@ format:
       - text: |
           \usepackage{wrapfig}
           \usepackage{subcaption}
+          \usepackage{fvextra}
+          \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
           \setmainfont{Linux Libertine O}
           \setsansfont{Linux Biolinum O}
           \setmonofont{Linux Libertine Mono O}

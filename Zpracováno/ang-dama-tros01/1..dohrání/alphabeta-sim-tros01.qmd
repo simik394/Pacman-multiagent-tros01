@@ -17,7 +17,9 @@ Cílem bylo postavit agenta, který nejen že vyhraje, ale vyhraje **efektivně*
 
 **Vizualizace herního stromu (Obrázek `\ref{fig-assignment}`{=latex} na titulní straně)**
 
-Na titulním obrázku (Obrázek `\ref{fig-assignment}`{=latex}) je vidět, jak ten můj "mozek" vlastně přemýšlí. Je to klasický Minimax s Alpha-Beta ořezáváním, ale v praxi to vypadá spíš jako prohledávání obrovského stromu možností:
+Na titulním obrázku (Obrázek `\ref{fig-assignment}`{=latex}) je vidět, jak jsem ten problém vlastně řešil, tedy alespoň z počátku. 
+
+Je to klasický Minimax s Alpha-Beta ořezáváním, ale v praxi to vypadá spíš jako prohledávání obrovského stromu možností:
 - **MAX uzly**: To jsem já, snažím se urvat co nejvíc bodů.
 - **MIN uzly**: To je soupeř, snaží se mi to zkazit.
 - **Ořezávání (Pruning)**: To jsou ty šedé větve. Vizualizovat celý strom bez prořezání by v tomhle měřítku nedávalo smysl – jak ukazují moje testy (`tests.md`), i pro jednoduché stavy generuje hrubá síla tisíce uzlů (např. 2090 vs 0 pro manuální cestu). Byl by to jen jeden velký nepřehledný "blob".
@@ -89,6 +91,9 @@ Donutit soupeře opustit bezpečné "dvojité rohy" (pole 1, 5, 28, 32).
 ```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_red_pos" dedent="true"}
 ```
 
+1. Penalta: Červený v bezpečné zóně (dvojitý roh) — agent ho chce vytlačit.
+2. Bonus: Červený opustil bezpečí — úspěšné vytlačení.
+
 ### 3. Koordinace (Coordination & Squeeze)
 
 #### Požadavek
@@ -111,6 +116,9 @@ $$ 2 \le dist(K_1, K_2) \le 4 $$
 ```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_coordination" dedent="true"}
 ```
 
+1. Bonus za koordinaci králů ve vzdálenosti 2–6 polí.
+2. Squeeze — sevření soupeře, bonus roste s blízkostí.
+
 ### 4. Past a Síť (Net Formation)
 
 #### Požadavek
@@ -130,6 +138,9 @@ Síť je definována vektorem mezi Kotvou ($K_A$) a Operátorem ($K_O$).
 ```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_net" dedent="true"}
 ```
 
+1. Net bonus: Operátor na správné diagonále.
+2. Crowding penalta: Operátor příliš blízko rohu.
+
 ### 5. Prevence patu a ústupu (Retreat Penalty)
 
 #### Požadavek
@@ -141,6 +152,10 @@ Občas se stane, že AI "nevidí" cestu k výhře v rámci horizontu (depth limi
 #### Implementace
 ```{.julia include="/home/sim/Obsi/Prods/04-škola/Předměty/mgr3/4IZ431..AI1/Zpracováno/ang-dama-tros01/2..simulace/src/heuristics.jl" region="perfect_retreat" dedent="true"}
 ```
+
+1. Tvrdá penalta za velkou průměrnou vzdálenost — promarněná příležitost.
+2. Střední penalta za mírné oddálení.
+3. Penalta za nejbližšího krále stále daleko.
 
 ***
 
