@@ -25,6 +25,11 @@ execute:
 | 7 | Cornering | Tlak k okrajum |
 | 8 | Corner Control | Kontextove zavisle rizeni rohu |
 
+::: {.callout-important}
+## Proč Kapitola 2 (Základní heuristika) selhala?
+V hloubce 6 nedokázala základní heuristika s Manhattanskou vzdáleností rozlišit mezi tahem `14-9` (vítězný) a `10-7` (remíza). Problémem byl tzv. **Horizon Effect** a fakt, že v dámě se figurky pohybují po diagonálách, což Manhattan ignoruje. Tato kapitola zavádí **obecné principy**, které tento "strop" překonávají.
+:::
+
 > **Pristup:** Zadne hardcoded pozice - pouze obecne principy.
 
 ## Silne stranky
@@ -54,6 +59,11 @@ Pro formální popis heuristiky používáme následující značení:
 - $pos(p) = (r, c)$: Pozice kamene $p$ (řádek, sloupec).
 - $d_{Cheb}(a, b) = \max(|a_r - b_r|, |a_c - b_c|)$: Chebyshevova vzdálenost (počet tahů krále).
 - $d_{Manh}(a, b) = |a_r - b_r| + |a_c - b_c|$: Manhattanská vzdálenost.
+
+::: {.callout-note}
+## Proč Manhattan v dámě selhává?
+Manhattanská vzdálenost počítá kroky "křížem" (nahoru + do boku). Král v dámě se ale pohybuje diagonálně - jeden krok diagonálně je v Manhattanu vzdálenost 2, ale v Čebyševu (skutečný počet tahů) je to 1. Čebyševova metrika tak věrněji odráží **tempo** hry.
+:::
 
 \newpage
 
