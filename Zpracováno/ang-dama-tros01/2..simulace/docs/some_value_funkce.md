@@ -91,14 +91,14 @@ Když má jeden hráč **více králů** než soupeř, aktivuje se logika nahán
 ```julia
 # Bílý má výhodu v králích
 if white_kings > red_kings
-    # Spočítej Manhattan vzdálenost mezi králi
+    # Spočítej Čebyševovu vzdálenost mezi králi
     avg_distance = ...
     # Menší vzdálenost = vyšší skóre
     score += (14 - avg_distance) * 10
 end
 ```
 
-**Manhattan vzdálenost:** `|r1 - r2| + |c1 - c2|`
+**Čebyševova vzdálenost:** `max(|r1 - r2|, |c1 - c2|)`
 
 **Maximální bonus:** (14 - 0) × 10 = **+140 bodů** (králové vedle sebe)
 

@@ -191,12 +191,12 @@ function my_heuristic(board::Matrix{Int})
             end
         end
         avg_distance = total_distance / (length(white_positions) * length(red_positions))
-        score += round(Int, (14 - avg_distance) * 100) # AGRESIVNÍ VÁHA (bylo 20)
+        score += round(Int, (8 - avg_distance) * 100) # AGRESIVNÍ VÁHA (Chebyshev 8 max)
 
         # 2. Zahnání do kouta
         for rp in red_positions
-            dist_center = abs(rp.r - 4.5) + abs(rp.c - 4.5)
-            score += round(Int, dist_center * 50) # AGRESIVNÍ VÁHA (bylo 15)
+            dist_center = max(abs(rp.r - 4.5), abs(rp.c - 4.5))
+            score += round(Int, dist_center * 50)
         end
         #| endregion: my_heuristic_endgame
     end
@@ -207,16 +207,16 @@ function my_heuristic(board::Matrix{Int})
         total_distance = 0
         for rp in red_positions
             for wp in white_positions
-                dist = abs(rp.r - wp.r) + abs(rp.c - wp.c)
+                dist = max(abs(rp.r - wp.r), abs(rp.c - wp.c))
                 total_distance += dist
             end
         end
         avg_distance = total_distance / (length(red_positions) * length(white_positions))
-        score -= round(Int, (14 - avg_distance) * 100)
+        score -= round(Int, (8 - avg_distance) * 100)
 
         # 2. Zahnání do kouta
         for wp in white_positions
-            dist_center = abs(wp.r - 4.5) + abs(wp.c - 4.5)
+            dist_center = max(abs(wp.r - 4.5), abs(wp.c - 4.5))
             score -= round(Int, dist_center * 50)
         end
     end
@@ -664,7 +664,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
             double_corner_row, double_corner_col = 1, 2
 
             #| region: perfect_red_pos
-            red_distance_from_corner = abs(red_row - double_corner_row) + abs(red_col - double_corner_col)
+            red_distance_from_corner = max(abs(red_row - double_corner_row), abs(red_col - double_corner_col))
 
             # Bonus za vzdálenost od rohu (čím dále, tím lépe)
             score += red_distance_from_corner * 80.0
@@ -688,11 +688,9 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
 
         if length(white_positions) >= 2
             wp1, wp2 = white_positions[1], white_positions[2]
-            king_distance = abs(wp1[1] - wp2[1]) + abs(wp1[2] - wp2[2])
-
             # Průměrná vzdálenost k červenému (potřebná pro retreat i coord)
-            dist_wp1_to_red = abs(wp1[1] - red_row) + abs(wp1[2] - red_col)
-            dist_wp2_to_red = abs(wp2[1] - red_row) + abs(wp2[2] - red_col)
+            dist_wp1_to_red = max(abs(wp1[1] - red_row), abs(wp1[2] - red_col))
+            dist_wp2_to_red = max(abs(wp2[1] - red_row), abs(wp2[2] - red_col))
             avg_dist = (dist_wp1_to_red + dist_wp2_to_red) / 2.0
 
             if config.use_coordination
@@ -771,8 +769,8 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
             if config.use_net
                 #| region: perfect_net
                 # Zjisti, který král je kotva (blíž k rohu) a který operátor
-                dist1_to_corner = abs(wp1[1] - 1) + abs(wp1[2] - 2)
-                dist2_to_corner = abs(wp2[1] - 1) + abs(wp2[2] - 2)
+                dist1_to_corner = max(abs(wp1[1] - 1), abs(wp1[2] - 2))
+                dist2_to_corner = max(abs(wp2[1] - 1), abs(wp2[2] - 2))
 
                 anchor = dist1_to_corner < dist2_to_corner ? wp1 : wp2
                 operator = dist1_to_corner < dist2_to_corner ? wp2 : wp1
@@ -784,8 +782,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
                     op_row, op_col = operator
 
                     # Vzdálenost operátora od rohu
-                    op_dist_from_corner = abs(op_row - 1) +
-                                          abs(op_col - 2)
+                    op_dist_from_corner = max(abs(op_row - 1), abs(op_col - 2))
 
                     # Bonus za operátora na diagonále pryč od rohu
                     # Pole 18 = (5,4), pole 15 = (4,6), pole 22 = (6,5) atd.
@@ -887,6 +884,7 @@ function perfect_endgame_heuristic(board::Matrix{Int}, config::HeuristicConfig=D
 
                 # Je některý W blízko rohu (distance <= 2)?
                 # POUŽITÍ CHEBYSHEV DISTANCE (max)
+                # Důvod: Král se hýbe o 1 pole všemi směry. Cheetah (5->1) měří jako 1 tah.
                 dist1 = max(abs(wp1[1] - 1), abs(wp1[2] - 2))
                 dist2 = max(abs(wp2[1] - 1), abs(wp2[2] - 2))
                 white_near_corner = (min(dist1, dist2) <= 2)

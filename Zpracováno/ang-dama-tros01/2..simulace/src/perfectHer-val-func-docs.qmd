@@ -418,10 +418,6 @@ redirect_stdio(stdout=devnull, stderr=devnull) do
     global res_human = generate_text_tree(3, 6, 6)   # Human:      KOMPLETNÍ hl. 6
 end
 
-# ── Výstup ────────────────────────────────────────────────────────────
-
-println("### Srovnání prořezávacích strategií (všechny hloubka 6)")
-println()
 println("### Srovnání prořezávacích strategií (všechny hloubka 6)")
 println()
 println("Počáteční pozice: **W@10, W@14, R@1** (Standardní zadání).")
@@ -883,7 +879,7 @@ end
 
 During the optimization process, a critical issue was identified where the heuristic assigned equal scores to the optimal move `14-9` and the suboptimal move `10-7`. This was caused by two factors:
 
-1.  **Metrika vzdálenosti**: Původní metrika nedokázala správně ohodnotit rozdíl mezi vyhranou a remízovou variantou, protože ignorovala diagonální dynamiku dámy.
+1. > **Metrika vzdálenosti:** Zde se klíčově uplatňuje **Čebyševova vzdálenost** (max(|dx|, |dy|)), která správně měří vzdálenost v počtu tahů krále (včetně diagonálního pohybu), na rozdíl od klasických pravoúhlých metrik.
 2.  **Crowding Penalty**: The heuristic penalized the optimal `14-9` line because both kings entered the "Near Corner" zone simultaneously, triggering a "Crowding" penalty intended for static phases.
 
 ### Applied Fixes
