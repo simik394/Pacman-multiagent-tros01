@@ -518,6 +518,143 @@ def betterEvaluationFunction(currentGameState: GameState):
     DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
+    from util import manhattanDistance, Queue
+
+    # --- 1. MAZE DISTANCE (BFS - Nutné pro zdi) ---
+    def getMazeDistance(start, target, gameState, limit=15):
+        walls = gameState.getWalls()
+        queue = Queue()
+        queue.push((start, 0))
+        visited = {start}
+        while not queue.isEmpty():
+            curr, dist = queue.pop()
+            if curr == target: return dist
+            if dist > limit: return manhattanDistance(start, target)
+            x, y = int(curr[0]), int(curr[1])
+            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                nextx, nexty = x + dx, y + dy
+                if not walls[nextx][nexty] and (nextx, nexty) not in visited:
+                    visited.add((nextx, nexty))
+                    queue.push(((nextx, nexty), dist + 1))
+        return manhattanDistance(start, target)
+
+    # --- 2. DATA ---
+    pos = currentGameState.getPacmanPosition()
+    food = currentGameState.getFood()
+    ghosts = currentGameState.getGhostStates()
+    capsules = currentGameState.getCapsules()
+    
+    # Skóre pro rozbíjení remíz (velmi malý vliv)
+    eval_score = currentGameState.getScore() * 0.01
+
+    # --- 3. ANALÝZA HROZEB (Je nutné použít zbraň?) ---
+    # Pokud je Pacman v bezprostředním ohrožení života, strategie jde stranou.
+    in_panic_mode = False
+    active_ghosts_nearby = 0
+    
+    for ghost in ghosts:
+        d = manhattanDistance(pos, ghost.getPosition())
+        if ghost.scaredTimer <= 0:
+            if d <= 3: 
+                active_ghosts_nearby += 1
+            if d <= 2:
+                in_panic_mode = True # Smrt na jazyku
+                
+    # --- 4. STRATEGICKÉ HODNOCENÍ KAPSLÍ ---
+    capsule_eval = 0
+    remaining_capsules = len(capsules)
+    
+    if capsules:
+        # Najdeme nejbližší kapsli
+        closest_cap = min(capsules, key=lambda c: manhattanDistance(pos, c))
+        dist_to_cap = getMazeDistance(pos, closest_cap, currentGameState)
+        
+        # Zjištění hustoty duchů v okolí této nejbližší kapsle
+        ghosts_near_capsule = 0
+        for ghost in ghosts:
+            # Zajímá nás, kolik duchů je v "blast radius" kapsle (např. 6 políček)
+            if manhattanDistance(closest_cap, ghost.getPosition()) <= 6:
+                ghosts_near_capsule += 1
+
+        # --- LOGIKA ROZHODOVÁNÍ ---
+        should_eat = False
+        
+        # A. PANIC BUTTON (Absolutní priorita)
+        # Pokud mě duchové obklíčili a kapsle je blízko -> Sněz ji hned.
+        if in_panic_mode and dist_to_cap <= 2:
+            should_eat = True
+            
+        # B. EARLY GAME (Máme hodně munice)
+        elif remaining_capsules > 2:
+            # Jíme jen tehdy, pokud je to "výhodný obchod" (např. 2+ duchové v okolí)
+            if ghosts_near_capsule >= 2:
+                should_eat = True
+            else:
+                should_eat = False # Šetříme, málo duchů
+                
+        # C. LATE GAME (Máme poslední 1-2 kapsle)
+        else:
+            # Tady jsi chtěl "šetřit na lategame". 
+            # Kapsli sníme jen v KRIZI (když nemůžeme k jídlu).
+            # Pokud nás duchové blokují (active_ghosts_nearby > 0), použijeme ji.
+            if active_ghosts_nearby > 0:
+                should_eat = True
+            else:
+                should_eat = False # Šetříme na horší časy
+
+        # --- APLIKACE VAH ---
+        if should_eat:
+            # CHCEME JI: Kapsle funguje jako super-jídlo
+            # Váha 500 přebije běžné jídlo, ale nepůsobí "zaseknutí"
+            capsule_eval -= dist_to_cap * 10.0 
+            capsule_eval -= remaining_capsules * 500.0
+        else:
+            # NECHCEME JI (Šetříme):
+            # Kapsle se stává "zdí" JEN POKUD je vedle jiné kapsle (Twin Problem)
+            is_twin = False
+            if dist_to_cap == 0:
+                # Jsme na kapsli. Je nějaká jiná blízko?
+                for c in capsules:
+                    if c != closest_cap and manhattanDistance(pos, c) <= 2:
+                        is_twin = True
+                        break
+            
+            if dist_to_cap == 0 and is_twin:
+                capsule_eval -= 1000.0 # Trest za plýtvání (druhá kapsle hned po první)
+            else:
+                # Pokud není twin, je to jedno. Můžeme ji sníst cestou.
+                # Mírná motivace ji spíš nechat (hoarding), ale neblokovat cestu.
+                capsule_eval += remaining_capsules * 100.0
+
+    # --- 5. JÍDLO (HLAVNÍ TAH) ---
+    food_eval = 0
+    foodList = food.asList()
+    if foodList:
+        closest_food = min(foodList, key=lambda f: manhattanDistance(pos, f))
+        dist_food = getMazeDistance(pos, closest_food, currentGameState)
+        
+        # Agresivní sběr jídla (-20 za tečku)
+        food_eval -= len(foodList) * 20.0
+        food_eval -= dist_food * 2.0
+
+    # --- 6. DUCHOVÉ (ÚTĚK / LOV) ---
+    ghost_eval = 0
+    for ghost in ghosts:
+        d = manhattanDistance(pos, ghost.getPosition())
+        if ghost.scaredTimer > 0:
+            # Lovíme jen, pokud je to cestou (malý bonus)
+            if d < ghost.scaredTimer:
+                ghost_eval += 50.0 / (d + 1)
+        else:
+            # Aktivní strach
+            if d <= 1: return -1e9
+            if d <= 3:
+                ghost_eval -= (4 - d) * 200.0
+
+    # --- 7. TIE-BREAKER ---
+    tie_breaker = (pos[0] * 0.01 + pos[1] * 0.001)
+
+    return eval_score + food_eval + ghost_eval + capsule_eval + tie_breaker
 
       # Abbreviation
 better = betterEvaluationFunction

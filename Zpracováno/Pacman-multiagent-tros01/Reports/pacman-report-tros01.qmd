@@ -48,5 +48,28 @@ Pokud v uzlu MIN nalezneme hodnotu menší než Alpha, víme, že MAX do tohoto 
 Tato optimalizace umožnila prohledávat do větší hloubky ve stejném čase, což vedlo k výrazně silnější hře agenta.
 :::
 
+:::
+
+## Expectimax
+Zatímco Minimax předpokládá optimálně hrajícího soupeře, **Expectimax** modeluje duchy jako agenty, kteří se rozhodují částečně náhodně (suboptimálně).
+
+- **Pacman (MAX)**: Stále maximalizuje své skóre.
+- **Duchové (CHANCE)**: Místo minimalizace počítáme **očekávanou hodnotu** (vážený průměr) všech možných tahů.
+- **Předpoklad**: Duchové vybírají tahy z uniformní distribuce (náhodně).
+
+$$ V(s) = \sum_{a \in Actions(s)} P(a) \times V(Successor(s, a)) $$
+
+```python
+# Ukázka logiky rozhodování (pseudokód)
+if agent_index == PACMAN:
+    return max(get_action(next_state, depth, next_agent) for next_state in successors)
+else:
+    # Duchové hrají náhodně (průměrná hodnota)
+    return sum(get_action(next_state, depth, next_agent) for next_state in successors) / len(successors)
+```
+
+### Výhody přístupu
+Tento přístup je v prostředí Pacmana často efektivnější než Minimax, protože duchové nehraji vždy perfektně. Expectimax se nesnaží "přežít za každou cenu" proti nejhoršímu scénáři (který nenastane), ale maximalizuje průměrný zisk. To vede k odvážnějšímu chování, kdy Pacman "riskuje" pro získání jídla, pokud je pravděpodobnost chycení nízká.
+
 ## Závěr "Warm-up" části
 Tato sada úloh posloužila jako ověření základních principů adversariálního prohledávání. Získané znalosti (zejména o Alpha-Beta prořezávání a návrhu heuristik) byly následně aplikovány a výrazně rozšířeny v hlavní části práce - **Analýze Anglické dámy**.
