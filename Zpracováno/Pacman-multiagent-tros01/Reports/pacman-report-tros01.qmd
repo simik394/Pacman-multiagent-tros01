@@ -71,5 +71,35 @@ else:
 ### Výhody přístupu
 Tento přístup je v prostředí Pacmana často efektivnější než Minimax, protože duchové nehraji vždy perfektně. Expectimax se nesnaží "přežít za každou cenu" proti nejhoršímu scénáři (který nenastane), ale maximalizuje průměrný zisk. To vede k odvážnějšímu chování, kdy Pacman "riskuje" pro získání jídla, pokud je pravděpodobnost chycení nízká.
 
+## Better Evaluation Function: "Thrill-Seeking" Agent
+V poslední části projektu jsem navrhl vlastní hodnotící funkci (`betterEvaluationFunction`), která transformuje Pacmana z opatrného sběrače na agresivního lovce.
+
+### 1. Řešení "Zeno's Paradox" (Oscilace)
+Během vývoje jsem narazil na problém, kdy Pacman osciloval v blízkosti kapsle nebo jídla, ale nesnědl je. Příčinou bylo, že **odměna za blízkost** (např. `+50` bodů za vzdálenost 1) byla vyšší než okamžitý zisk z konzumace (který paradoxně tuto odměnu zrušil).
+
+**Řešení:** Invertoval jsem logiku z odměn na **penalizace za existenci**.
+- Každá existující tečka jídla: `-20` bodů.
+- Každá existující kapsle: `-500` bodů.
+
+Tímto způsobem je konzumace objektu (jeho odstranění ze seznamu) jediným způsobem, jak se zbavit masivní penalizace. To Pacmana matematicky nutí k akci a zabraňuje "čekání".
+
+### 2. Operation Ghostbuster (Ambush Logic)
+Agent implementuje speciální "kombo" logiku pro lov duchů. Pokud se duch nachází v blízkosti kapsle (vzdálenost < 5), agent to vyhodnotí jako příležitost k pasti:
+- Penalizace za nesnědenou kapsli se drasticky zvýší (`-800` a strmější gradient).
+- To vyvolá "paniku" v hodnotící funkci, která Pacmana donutí okamžitě sprintovat pro kapsli a následně zkonzumovat zranitelného ducha.
+
+### 3. Agresivní lov (Strict Dominance)
+Agent prioritizuje lov zranitelných duchů nad sběrem jídla. Matematická váha za snědení ducha (`+200`) je nastavena tak, aby striktně dominovala nad jakoukoli kombinací vzdálenosti k jídlu.
+```python
+if scaredTimer > 0:
+    # Aggressive Chase
+    ghost_score += 100.0 / (dist + 1)
+else:
+    # Active Avoidance
+    if dist <= 1: return -999999.0
+```
+
+Tato kombinace strategií vede k agentovi, který nejen efektivně čistí bludiště, ale aktivně vyhledává a eliminuje hrozby v "Thrill-Seeking" stylu.
+
 ## Závěr "Warm-up" části
 Tato sada úloh posloužila jako ověření základních principů adversariálního prohledávání. Získané znalosti (zejména o Alpha-Beta prořezávání a návrhu heuristik) byly následně aplikovány a výrazně rozšířeny v hlavní části práce - **Analýze Anglické dámy**.

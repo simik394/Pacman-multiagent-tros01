@@ -572,35 +572,33 @@ def betterEvaluationFunction(currentGameState: GameState):
         # Zjištění hustoty duchů v okolí této nejbližší kapsle
         ghosts_near_capsule = 0
         for ghost in ghosts:
-            # Zajímá nás, kolik duchů je v "blast radius" kapsle (např. 6 políček)
-            if manhattanDistance(closest_cap, ghost.getPosition()) <= 6:
+            # Zajímá nás, kolik AKTIVNÍCH duchů je v "blast radius" kapsle
+            if ghost.scaredTimer <= 0 and manhattanDistance(closest_cap, ghost.getPosition()) <= 5:
                 ghosts_near_capsule += 1
 
         # --- LOGIKA ROZHODOVÁNÍ ---
         should_eat = False
         
-        # A. PANIC BUTTON (Absolutní priorita)
-        # Pokud mě duchové obklíčili a kapsle je blízko -> Sněz ji hned.
-        if in_panic_mode and dist_to_cap <= 2:
+        # 1. DEFENSE / PANIC (Priorita 1)
+        # Pokud nás ohrožuje duch a můžeme to vyřešit kapslí -> SNĚZ JI.
+        if active_ghosts_nearby > 0 and dist_to_cap <= 6:
             should_eat = True
-            
-        # B. EARLY GAME (Máme hodně munice)
+
+        # 2. OPPORTUNITY KILL (Combo)
+        # Pokud je u kapsle aktivní duch -> Jdi po ní a sněz ho. (Combo: Capsule + Ghost)
+        elif ghosts_near_capsule > 0:
+            should_eat = True
+
+        # 3. OFFENSE / EFFICIENCY (Máme hodně kapslí)
         elif remaining_capsules > 2:
-            # Jíme jen tehdy, pokud je to "výhodný obchod" (např. 2+ duchové v okolí)
-            if ghosts_near_capsule >= 2:
+             # Zde už ghosts_near_capsule > 0 zachytí Opportunity, 
+             # takže toto pravidlo je spíš redundantní, ale necháme pro jistotu
+             if ghosts_near_capsule >= 2:
                 should_eat = True
-            else:
-                should_eat = False # Šetříme, málo duchů
                 
-        # C. LATE GAME (Máme poslední 1-2 kapsle)
+        # 4. ENDGAME CLEANUP
         else:
-            # Tady jsi chtěl "šetřit na lategame". 
-            # Kapsli sníme jen v KRIZI (když nemůžeme k jídlu).
-            # Pokud nás duchové blokují (active_ghosts_nearby > 0), použijeme ji.
-            if active_ghosts_nearby > 0:
-                should_eat = True
-            else:
-                should_eat = False # Šetříme na horší časy
+            should_eat = False
 
         # --- APLIKACE VAH ---
         if should_eat:
@@ -623,38 +621,99 @@ def betterEvaluationFunction(currentGameState: GameState):
                 capsule_eval -= 1000.0 # Trest za plýtvání (druhá kapsle hned po první)
             else:
                 # Pokud není twin, je to jedno. Můžeme ji sníst cestou.
-                # Mírná motivace ji spíš nechat (hoarding), ale neblokovat cestu.
-                capsule_eval += remaining_capsules * 100.0
+                # Mírná motivace být blízko (positioning), ale neblokovat se.
+                capsule_eval -= dist_to_cap * 2.0
 
-    # --- 5. JÍDLO (HLAVNÍ TAH) ---
-    food_eval = 0
-    foodList = food.asList()
-    if foodList:
-        closest_food = min(foodList, key=lambda f: manhattanDistance(pos, f))
-        dist_food = getMazeDistance(pos, closest_food, currentGameState)
+def betterEvaluationFunction(currentGameState):
+    """
+    Your extreme ghost-hunting, pellet-nomsing, uncontrollable anxiety-inducing evaluation function.
+    
+    DESCRIPTION:
+    1.  **Strict Dominance**: Eating > Chasing > Scared > Active.
+    2.  **Mathematical Safety**: No `float('inf')`. All returns are bounded.
+    3.  **Aggression**: 
+        -   If we can eat a ghost (`d < timer`), the bonus is MASSIVE but bounded (< Reward).
+        -   Actually, we rely on the `score` jump (+200) to be the primary motivator.
+        -   Heuristic just guides us there.
+    """
+    # --- 1. SETUP ---
+    pos = currentGameState.getPacmanPosition()
+    food = currentGameState.getFood()
+    ghosts = currentGameState.getGhostStates()
+    capsules = currentGameState.getCapsules()
+    current_score = currentGameState.getScore()
+    
+    # --- 2. TERMINAL STATES (Safety) ---
+    if currentGameState.isWin():
+        return 999999.0
+    if currentGameState.isLose():
+        return -999999.0
         
-        # Agresivní sběr jídla (-20 za tečku)
-        food_eval -= len(foodList) * 20.0
-        food_eval -= dist_food * 2.0
-
-    # --- 6. DUCHOVÉ (ÚTĚK / LOV) ---
-    ghost_eval = 0
+    # --- 3. FOOD (Breadcrumbs) ---
+    foodList = food.asList()
+    food_score = 0
+    if foodList:
+        closest_food_pos = min(foodList, key=lambda f: manhattanDistance(pos, f))
+        dist_to_food = manhattanDistance(pos, closest_food_pos)
+        
+        # Penalize for having food left and for being far from it.
+        # This ensures EATING (count decreases) is always better than JUST STANDING NEAR.
+        food_score -= 20.0 * len(foodList)  # Big penalty for existing food
+        food_score -= 2.0 * dist_to_food    # Smaller penalty for distance
+    
+    # --- 4. GHOSTS (The Meat) ---
+    ghost_score = 0
+    
     for ghost in ghosts:
         d = manhattanDistance(pos, ghost.getPosition())
         if ghost.scaredTimer > 0:
-            # Lovíme jen, pokud je to cestou (malý bonus)
+            # Scared Ghost Logic
             if d < ghost.scaredTimer:
-                ghost_eval += 50.0 / (d + 1)
+                # Chase!
+                # If we eat, score jumps +200.
+                # If we get closer, we want heuristic to improve.
+                # Use a small bonus for proximity to guide us there.
+                ghost_score += 100.0 / (d + 1)
+            else:
+                # Can't catch - avoid if too close
+                if d <= 1: return -999999.0
         else:
-            # Aktivní strach
-            if d <= 1: return -1e9
+            # Active Ghost
+            if d <= 1: return -999999.0
             if d <= 3:
-                ghost_eval -= (4 - d) * 200.0
+                ghost_score -= 50.0 / (d + 1)
 
-    # --- 7. TIE-BREAKER ---
-    tie_breaker = (pos[0] * 0.01 + pos[1] * 0.001)
-
-    return eval_score + food_eval + ghost_eval + capsule_eval + tie_breaker
+    # --- 5. CAPSULES (Powerups) ---
+    capsule_score = 0
+    if capsules:
+        closest_cap = min(capsules, key=lambda c: manhattanDistance(pos, c))
+        dist_cap = manhattanDistance(pos, closest_cap)
+        
+        # Combo/Ambush Logic Check
+        ghost_near_cap = False
+        for ghost in ghosts:
+            if ghost.scaredTimer <= 0 and manhattanDistance(ghost.getPosition(), closest_cap) <= 5:
+                ghost_near_cap = True
+                break
+        
+        # Base Penalty for existence
+        capsule_score -= 500.0 * len(capsules) # Eating is HUGE improvement
+        
+        if ghost_near_cap:
+             # If ghost is near, we REALLY want to go there.
+             # Reduce the distance penalty (or increase pull)
+             capsule_score -= 2.0 * dist_cap 
+        else:
+             # Standard penalty
+             capsule_score -= 4.0 * dist_cap
+            
+    # --- 6. AGGREGATION ---
+            
+    # --- 6. AGGREGATION ---
+    # Tie breaker: random small noise or positional?
+    tie_breaker = 0
+    
+    return current_score + food_score + ghost_score + capsule_score
 
       # Abbreviation
 better = betterEvaluationFunction
