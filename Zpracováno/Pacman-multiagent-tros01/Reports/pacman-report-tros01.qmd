@@ -99,7 +99,9 @@ else:
     if dist <= 1: return -999999.0
 ```
 
-Tato kombinace strategií vede k agentovi, který nejen efektivně čistí bludiště, ale aktivně vyhledává a eliminuje hrozby v "Thrill-Seeking" stylu.
+Tato kombinace strategií vede k agentovi, který nejen efektivně čistí bludiště, ale aktivně vyhledává a eliminuje hrozby v "Thrill-Seeking" stylu. 
+
+**Důležité upozornění:** Je nutné zdůraznit, že tento "Thrill-Seeking" styl **nebyl primárním cílem** návrhu. Jedná se o **nezamýšlený vedlejší efekt (side-effect)** optimalizace pro maximální skóre v omezeném čase. Snaha o co nejrychlejší eliminaci penalizací (potřeba "zbavit se" existujících kapslí a jídla) přirozeně vyústila v agresivní chování, které působí odvážně, ačkoliv je motivováno čistě pragmatickou matematikou minimalizace ztrát. Nejedná se tedy o naprogramovanou "osobnost" agenta, ale o emergentní chování vzniklé z interakce negativních vah v hodnotící funkci.
 
 ## Závěr "Warm-up" části
 Tato sada úloh posloužila jako ověření základních principů adversariálního prohledávání. Získané znalosti (zejména o Alpha-Beta prořezávání a návrhu heuristik) byly následně aplikovány a výrazně rozšířeny v hlavní části práce - **Analýze Anglické dámy**.
